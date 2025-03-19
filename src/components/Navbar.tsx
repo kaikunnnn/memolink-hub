@@ -1,14 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Menu, X, ChevronRight } from 'lucide-react';
+import { Menu, X, ChevronRight, User } from 'lucide-react';
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false); // TODO: Replace with actual auth state
   const location = useLocation();
+  const navigate = useNavigate();
   
   useEffect(() => {
     const handleScroll = () => {
@@ -21,6 +23,13 @@ const Navbar = () => {
   
   useEffect(() => {
     setMobileMenuOpen(false);
+  }, [location.pathname]);
+  
+  // TODO: Replace with actual auth check
+  useEffect(() => {
+    // For now, we'll simulate auth status
+    // In reality, this would check Supabase auth status
+    setIsLoggedIn(location.pathname === '/account');
   }, [location.pathname]);
   
   const navItems = [
@@ -71,12 +80,21 @@ const Navbar = () => {
         </div>
         
         <div className="hidden md:flex items-center space-x-4">
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/signin">サインイン</Link>
-          </Button>
-          <Button size="sm" asChild>
-            <Link to="/signup">無料で始める <ChevronRight className="ml-1 h-4 w-4" /></Link>
-          </Button>
+          {isLoggedIn ? (
+            <Button variant="ghost" size="sm" onClick={() => navigate('/account')}>
+              <User className="mr-2 h-4 w-4" />
+              マイアカウント
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/signin">サインイン</Link>
+              </Button>
+              <Button size="sm" asChild>
+                <Link to="/signup">無料で始める <ChevronRight className="ml-1 h-4 w-4" /></Link>
+              </Button>
+            </>
+          )}
         </div>
         
         <button 
@@ -116,12 +134,20 @@ const Navbar = () => {
             </Link>
           ))}
           <div className="pt-4 space-y-2">
-            <Button variant="outline" className="w-full" asChild>
-              <Link to="/signin">サインイン</Link>
-            </Button>
-            <Button className="w-full" asChild>
-              <Link to="/signup">無料で始める</Link>
-            </Button>
+            {isLoggedIn ? (
+              <Button className="w-full" asChild>
+                <Link to="/account">マイアカウント</Link>
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" className="w-full" asChild>
+                  <Link to="/signin">サインイン</Link>
+                </Button>
+                <Button className="w-full" asChild>
+                  <Link to="/signup">無料で始める</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </div>

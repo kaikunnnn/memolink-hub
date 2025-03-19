@@ -1,13 +1,14 @@
-
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { toast as sonnerToast } from 'sonner';
 
 interface AuthContextProps {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
+  isConfigured: boolean;
   signUp: (email: string, password: string, name: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -17,6 +18,7 @@ const AuthContext = createContext<AuthContextProps>({
   user: null,
   session: null,
   isLoading: true,
+  isConfigured: false,
   signUp: async () => {},
   signIn: async () => {},
   signOut: async () => {},
@@ -28,22 +30,38 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isConfigured, setIsConfigured] = useState(isSupabaseConfigured());
   const { toast } = useToast();
 
   useEffect(() => {
+    // Check if Supabase is configured
+    if (!isConfigured) {
+      sonnerToast.error(
+        "Supabase configuration missing",
+        "Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables."
+      );
+      setIsLoading(false);
+      return;
+    }
+
     // セッションがあるかを確認
     const fetchSession = async () => {
-      const { data, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('Error fetching session:', error);
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error fetching session:', error);
+          setIsLoading(false);
+          return;
+        }
+        
+        setSession(data.session);
+        setUser(data.session?.user || null);
         setIsLoading(false);
-        return;
+      } catch (error) {
+        console.error('Error in fetchSession:', error);
+        setIsLoading(false);
       }
-      
-      setSession(data.session);
-      setUser(data.session?.user || null);
-      setIsLoading(false);
     };
 
     fetchSession();
@@ -60,10 +78,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [isConfigured]);
 
   // サインアップ
   const signUp = async (email: string, password: string, name: string) => {
+    if (!isConfigured) {
+      sonnerToast.error(
+        "Supabase configuration missing",
+        "Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables."
+      );
+      return;
+    }
+    
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -117,6 +143,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   // サインイン
   const signIn = async (email: string, password: string) => {
+    if (!isConfigured) {
+      sonnerToast.error(
+        "Supabase configuration missing",
+        "Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables."
+      );
+      return;
+    }
+    
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -153,6 +187,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   // サインアウト
   const signOut = async () => {
+    if (!isConfigured) {
+      sonnerToast.error(
+        "Supabase configuration missing",
+        "Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables."
+      );
+      return;
+    }
+    
     try {
       const { error } = await supabase.auth.signOut();
       
@@ -181,6 +223,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     user,
     session,
     isLoading,
+    isConfigured,
     signUp,
     signIn,
     signOut,

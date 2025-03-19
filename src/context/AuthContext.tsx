@@ -97,19 +97,51 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (data.user) {
-        // プロフィールデータベースにユーザー情報を保存
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([
-            {
-              id: data.user.id,
-              name,
-              bio: '',
-            },
-          ]);
+        try {
+          // プロフィールテーブルが存在するか確認
+          const { error: tableCheckError } = await supabase
+            .from('profiles')
+            .select('id')
+            .limit(1);
+            
+          // テーブルが存在しない場合、エラーをスキップして成功メッセージを表示
+          if (tableCheckError) {
+            console.warn('Profiles table not found:', tableCheckError);
+            uiToast({
+              title: "アカウント作成成功",
+              description: "ただし、プロフィールテーブルが設定されていないため、プロフィール情報は保存されませんでした。Supabaseダッシュボードでテーブルを作成してください。",
+            });
+            return;
+          }
+          
+          // プロフィールデータベースにユーザー情報を保存
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert([
+              {
+                id: data.user.id,
+                name,
+                bio: '',
+              },
+            ]);
 
-        if (profileError) {
-          throw profileError;
+          if (profileError) {
+            console.error('Profile creation error:', profileError);
+            // プロフィール作成に失敗してもサインアップ自体は成功とする
+            uiToast({
+              title: "アカウント作成成功",
+              description: "プロフィール情報の保存に失敗しました。管理者にお問い合わせください。",
+            });
+            return;
+          }
+        } catch (profileErr) {
+          console.error('Profile creation exception:', profileErr);
+          // プロフィール作成時の例外でもサインアップ自体は成功とする
+          uiToast({
+            title: "アカウント作成成功",
+            description: "プロフィール情報の保存に失敗しました。管理者にお問い合わせください。",
+          });
+          return;
         }
 
         uiToast({
@@ -124,6 +156,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (error.message) {
         if (error.message.includes("already registered")) {
           errorMessage = "このメールアドレスは既に登録されています。";
+        } else if (error.code === "over_email_send_rate_limit") {
+          errorMessage = "セキュリティのため短時間での複数回のリクエストはできません。しばらくしてからお試しください。";
         }
       }
       

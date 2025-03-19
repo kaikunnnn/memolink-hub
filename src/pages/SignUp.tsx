@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,6 +19,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ArrowLeft, Mail, Lock, User, AlertCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import SupabaseConfigGuide from '@/components/SupabaseConfigGuide';
+import SupabaseSetupGuide from '@/components/SupabaseSetupGuide';
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -46,6 +46,7 @@ const SignUp = () => {
   const { signUp, isConfigured } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generalError, setGeneralError] = useState<string | null>(null);
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -64,10 +65,18 @@ const SignUp = () => {
     
     try {
       await signUp(values.email, values.password, values.name);
+      // リダイレクトはアカウント作成が成功した場合のみ行う
       navigate('/account');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Sign up error:', error);
+      // エラーメッセージは既にsignUp関数内でトーストとして表示されているため、
+      // ここでは静かなフォーム内エラーのみを表示する
       setGeneralError("アカウント作成に失敗しました。もう一度お試しください。");
+      
+      // テーブルが存在しないエラーの場合、セットアップガイドを表示
+      if (error?.code === "404" || (error?.message && error.message.includes("does not exist"))) {
+        setShowSetupGuide(true);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -98,6 +107,26 @@ const SignUp = () => {
               してください。
             </p>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // セットアップガイドを表示する場合
+  if (showSetupGuide) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background pt-16">
+        <div className="container max-w-md mx-auto px-4 py-8 flex-1">
+          <Button 
+            variant="ghost" 
+            className="w-fit mb-6" 
+            onClick={() => setShowSetupGuide(false)}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            戻る
+          </Button>
+          
+          <SupabaseSetupGuide />
         </div>
       </div>
     );
@@ -223,14 +252,25 @@ const SignUp = () => {
               )}
             />
 
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <span className="flex items-center">
-                  <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent"></span>
-                  処理中...
-                </span>
-              ) : "アカウント作成"}
-            </Button>
+            <div className="flex justify-between">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setShowSetupGuide(true)}
+                className="text-xs"
+              >
+                Supabase設定ガイドを表示
+              </Button>
+              
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <span className="flex items-center">
+                    <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent"></span>
+                    処理中...
+                  </span>
+                ) : "アカウント作成"}
+              </Button>
+            </div>
           </form>
         </Form>
 

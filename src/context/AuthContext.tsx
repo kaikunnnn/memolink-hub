@@ -37,10 +37,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     // Check if Supabase is configured
     if (!isConfigured) {
-      sonnerToast.error(
-        "Supabase configuration missing",
-        "Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables."
-      );
+      sonnerToast.error({
+        title: "Supabase configuration missing",
+        description: "Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables."
+      });
       setIsLoading(false);
       return;
     }
@@ -84,10 +84,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // サインアップ
   const signUp = async (email: string, password: string, name: string) => {
     if (!isConfigured) {
-      sonnerToast.error(
-        "Supabase configuration missing",
-        "Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables."
-      );
+      sonnerToast.error({
+        title: "Supabase configuration missing",
+        description: "Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables."
+      });
       return;
     }
     
@@ -145,10 +145,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // サインイン
   const signIn = async (email: string, password: string) => {
     if (!isConfigured) {
-      sonnerToast.error(
-        "Supabase configuration missing",
-        "Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables."
-      );
+      sonnerToast.error({
+        title: "Supabase configuration missing",
+        description: "Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables."
+      });
       return;
     }
     
@@ -189,10 +189,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // サインアウト
   const signOut = async () => {
     if (!isConfigured) {
-      sonnerToast.error(
-        "Supabase configuration missing", 
-        "Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables."
-      );
+      sonnerToast.error({
+        title: "Supabase configuration missing",
+        description: "Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables."
+      });
       return;
     }
     

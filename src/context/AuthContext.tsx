@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
@@ -189,7 +190,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = async () => {
     if (!isConfigured) {
       sonnerToast.error(
-        "Supabase configuration missing",
+        "Supabase configuration missing", 
         "Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables."
       );
       return;

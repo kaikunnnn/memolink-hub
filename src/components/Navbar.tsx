@@ -4,13 +4,16 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Menu, X, ChevronRight, User } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // TODO: Replace with actual auth state
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+  
+  const isLoggedIn = !!user;
   
   useEffect(() => {
     const handleScroll = () => {
@@ -25,12 +28,14 @@ const Navbar = () => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
   
-  // TODO: Replace with actual auth check
-  useEffect(() => {
-    // For now, we'll simulate auth status
-    // In reality, this would check Supabase auth status
-    setIsLoggedIn(location.pathname === '/account');
-  }, [location.pathname]);
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
   
   const navItems = [
     { name: 'ホーム', path: '/' },
@@ -135,9 +140,14 @@ const Navbar = () => {
           ))}
           <div className="pt-4 space-y-2">
             {isLoggedIn ? (
-              <Button className="w-full" asChild>
-                <Link to="/account">マイアカウント</Link>
-              </Button>
+              <>
+                <Button className="w-full" asChild>
+                  <Link to="/account">マイアカウント</Link>
+                </Button>
+                <Button variant="outline" className="w-full" onClick={handleSignOut}>
+                  ログアウト
+                </Button>
+              </>
             ) : (
               <>
                 <Button variant="outline" className="w-full" asChild>

@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ArrowLeft, Mail, Lock, User, AlertCircle } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -41,6 +42,9 @@ const formSchema = z.object({
 const SignUp = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { signUp } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [generalError, setGeneralError] = useState<string | null>(null);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -54,24 +58,17 @@ const SignUp = () => {
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    setGeneralError(null);
+    setIsSubmitting(true);
+    
     try {
-      // TODO: Implement actual sign-up with Supabase
-      console.log('Sign up with:', values);
-      
-      // For now, simulate successful registration
-      toast({
-        title: "アカウント作成成功",
-        description: "アカウントが正常に作成されました。",
-      });
-      
+      await signUp(values.email, values.password, values.name);
       navigate('/account');
     } catch (error) {
-      console.error('Registration error:', error);
-      toast({
-        variant: "destructive",
-        title: "エラーが発生しました",
-        description: "アカウント作成に失敗しました。もう一度お試しください。",
-      });
+      console.error('Sign up error:', error);
+      setGeneralError("アカウント作成に失敗しました。もう一度お試しください。");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -93,6 +90,13 @@ const SignUp = () => {
             メモラーンへようこそ！アカウントを作成して学習を始めましょう
           </p>
         </div>
+
+        {generalError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{generalError}</AlertDescription>
+          </Alert>
+        )}
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -188,8 +192,13 @@ const SignUp = () => {
               )}
             />
 
-            <Button type="submit" className="w-full">
-              アカウント作成
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <span className="flex items-center">
+                  <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent"></span>
+                  処理中...
+                </span>
+              ) : "アカウント作成"}
             </Button>
           </form>
         </Form>

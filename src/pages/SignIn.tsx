@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ArrowLeft, Mail, Lock, AlertCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import SupabaseConfigGuide from '@/components/SupabaseConfigGuide';
 
 const formSchema = z.object({
   email: z.string().email({
@@ -31,7 +32,7 @@ const formSchema = z.object({
 const SignIn = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signIn } = useAuth();
+  const { signIn, isConfigured } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generalError, setGeneralError] = useState<string | null>(null);
   
@@ -57,6 +58,36 @@ const SignIn = () => {
       setIsSubmitting(false);
     }
   };
+
+  // Supabaseが設定されていない場合、設定ガイドを表示
+  if (!isConfigured) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background pt-16">
+        <div className="container max-w-md mx-auto px-4 py-8 flex-1 flex flex-col justify-center">
+          <Button 
+            variant="ghost" 
+            className="w-fit mb-6" 
+            onClick={() => navigate(-1)}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            戻る
+          </Button>
+          
+          <SupabaseConfigGuide />
+          
+          <div className="mt-6 text-center">
+            <p className="text-sm text-muted-foreground">
+              アカウントをお持ちでない場合は、
+              <Link to="/signup" className="text-primary font-medium hover:underline">
+                アカウント作成
+              </Link>
+              へ進んでください。
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background pt-16">

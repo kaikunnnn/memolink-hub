@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -27,6 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose
 } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ArrowLeft, BookOpen, User, CreditCard, Bell, LogOut, Trash2 } from "lucide-react";
@@ -55,7 +55,6 @@ const Account = () => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('profile');
   
-  // Mock user data
   const userData = {
     name: "テスト ユーザー",
     email: "test@example.com",
@@ -83,7 +82,6 @@ const Account = () => {
   });
 
   const onProfileSubmit = async (values: z.infer<typeof profileFormSchema>) => {
-    // TODO: Implement profile update with Supabase
     console.log('Update profile with:', values);
     
     toast({
@@ -93,7 +91,6 @@ const Account = () => {
   };
   
   const onNotificationSubmit = async (values: z.infer<typeof notificationFormSchema>) => {
-    // TODO: Implement notification settings update with Supabase
     console.log('Update notification settings with:', values);
     
     toast({
@@ -103,7 +100,6 @@ const Account = () => {
   };
   
   const handleLogout = async () => {
-    // TODO: Implement logout with Supabase
     console.log('Logging out');
     
     toast({
@@ -115,7 +111,6 @@ const Account = () => {
   };
   
   const handleDeleteAccount = async () => {
-    // TODO: Implement account deletion with Supabase
     console.log('Deleting account');
     
     toast({
@@ -132,7 +127,6 @@ const Account = () => {
       
       <main className="flex-1 container max-w-5xl py-10 px-4 sm:px-6 lg:px-8 mt-16">
         <div className="flex flex-col sm:flex-row gap-8">
-          {/* Sidebar */}
           <aside className="w-full sm:w-64 shrink-0">
             <div className="sticky top-24 space-y-1">
               <Button
@@ -185,9 +179,9 @@ const Account = () => {
                     </DialogDescription>
                   </DialogHeader>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => document.querySelector('[data-radix-dialog-close]')?.click()}>
-                      キャンセル
-                    </Button>
+                    <DialogClose asChild>
+                      <Button variant="outline">キャンセル</Button>
+                    </DialogClose>
                     <Button variant="default" onClick={handleLogout}>
                       ログアウト
                     </Button>
@@ -220,7 +214,6 @@ const Account = () => {
             </div>
           </aside>
           
-          {/* Main content */}
           <div className="flex-1">
             {activeTab === 'profile' && (
               <div className="space-y-6">
@@ -271,7 +264,7 @@ const Account = () => {
                           <FormLabel>自己紹介</FormLabel>
                           <FormControl>
                             <Textarea 
-                              placeholder="あなた自身や学習目標について教えてください（任意）" 
+                              placeholder="あな���自身や学習目標について教えてください（任意）" 
                               className="resize-none" 
                               {...field} 
                             />
@@ -361,7 +354,6 @@ const Account = () => {
                 <Separator />
                 
                 <div className="grid grid-cols-1 gap-4">
-                  {/* Sample course items - these would be dynamically generated */}
                   <div className="bg-muted/50 rounded-lg p-4 border">
                     <div className="flex flex-col sm:flex-row gap-4">
                       <div className="sm:w-24 sm:h-16 overflow-hidden rounded bg-muted">

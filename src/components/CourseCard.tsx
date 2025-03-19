@@ -13,6 +13,7 @@ interface CourseCardProps {
   level: string;
   isPremium?: boolean;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 const CourseCard: React.FC<CourseCardProps> = ({
@@ -25,6 +26,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
   level,
   isPremium = false,
   className,
+  style,
 }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -42,6 +44,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
       className={`block rounded-xl overflow-hidden hover-card ${className}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      style={style}
     >
       <div className={`image-container aspect-video relative ${isLoaded ? 'image-loaded' : ''}`}>
         <div className="image-blur-wrapper">

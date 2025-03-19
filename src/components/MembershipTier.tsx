@@ -12,6 +12,7 @@ interface MembershipTierProps {
   features: string[];
   isPopular?: boolean;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 const MembershipTier: React.FC<MembershipTierProps> = ({
@@ -22,6 +23,7 @@ const MembershipTier: React.FC<MembershipTierProps> = ({
   features,
   isPopular = false,
   className,
+  style,
 }) => {
   return (
     <div 
@@ -32,6 +34,7 @@ const MembershipTier: React.FC<MembershipTierProps> = ({
           : "border border-border hover:border-primary/30 hover:shadow-md",
         className
       )}
+      style={style}
     >
       {isPopular && (
         <div className="absolute top-0 right-0 bg-primary py-1 px-3 text-xs font-medium text-primary-foreground">

@@ -1,9 +1,8 @@
-
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
-import { toast as sonnerToast } from 'sonner';
+import { toast } from 'sonner';
 
 interface AuthContextProps {
   user: User | null;
@@ -32,15 +31,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isConfigured, setIsConfigured] = useState(isSupabaseConfigured());
-  const { toast } = useToast();
+  const { toast: uiToast } = useToast();
 
   useEffect(() => {
     // Check if Supabase is configured
     if (!isConfigured) {
-      sonnerToast.error({
-        title: "Supabase configuration missing",
-        description: "Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables."
-      });
+      toast.error("Supabase configuration missing - Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables.");
       setIsLoading(false);
       return;
     }
@@ -84,10 +80,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // サインアップ
   const signUp = async (email: string, password: string, name: string) => {
     if (!isConfigured) {
-      sonnerToast.error({
-        title: "Supabase configuration missing",
-        description: "Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables."
-      });
+      toast.error("Supabase configuration missing - Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables.");
       return;
     }
     
@@ -117,7 +110,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           throw profileError;
         }
 
-        toast({
+        uiToast({
           title: "アカウント作成成功",
           description: "確認メールを送信しました。メールを確認してください。",
         });
@@ -132,7 +125,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       }
       
-      toast({
+      uiToast({
         variant: "destructive",
         title: "エラーが発生しました",
         description: errorMessage,
@@ -145,10 +138,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // サインイン
   const signIn = async (email: string, password: string) => {
     if (!isConfigured) {
-      sonnerToast.error({
-        title: "Supabase configuration missing",
-        description: "Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables."
-      });
+      toast.error("Supabase configuration missing - Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables.");
       return;
     }
     
@@ -162,7 +152,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw error;
       }
 
-      toast({
+      uiToast({
         title: "ログイン成功",
         description: "アカウントにログインしました。",
       });
@@ -176,7 +166,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       }
       
-      toast({
+      uiToast({
         variant: "destructive",
         title: "エラーが発生しました",
         description: errorMessage,
@@ -189,10 +179,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // サインアウト
   const signOut = async () => {
     if (!isConfigured) {
-      sonnerToast.error({
-        title: "Supabase configuration missing",
-        description: "Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables."
-      });
+      toast.error("Supabase configuration missing - Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables.");
       return;
     }
     
@@ -203,14 +190,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw error;
       }
 
-      toast({
+      uiToast({
         title: "ログアウトしました",
         description: "正常にログアウトしました。",
       });
     } catch (error: any) {
       console.error('Error during sign out:', error);
       
-      toast({
+      uiToast({
         variant: "destructive",
         title: "エラーが発生しました",
         description: "ログアウトに失敗しました。",

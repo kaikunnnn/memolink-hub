@@ -93,7 +93,7 @@ const Navbar = () => {
           ) : (
             <>
               <Button variant="outline" size="sm" asChild>
-                <Link to="/signin">サインイン</Link>
+                <Link to="/login">ログイン</Link>
               </Button>
               <Button size="sm" asChild>
                 <Link to="/signup">無料で始める <ChevronRight className="ml-1 h-4 w-4" /></Link>
@@ -151,7 +151,7 @@ const Navbar = () => {
             ) : (
               <>
                 <Button variant="outline" className="w-full" asChild>
-                  <Link to="/signin">サインイン</Link>
+                  <Link to="/login">ログイン</Link>
                 </Button>
                 <Button className="w-full" asChild>
                   <Link to="/signup">無料で始める</Link>

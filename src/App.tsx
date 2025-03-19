@@ -11,6 +11,7 @@ import Courses from "./pages/Courses";
 import VideoPlayer from "./pages/VideoPlayer";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
+import Login from "./pages/Login";
 import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
 
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/courses/:courseId" element={<VideoPlayer />} />
             <Route path="/signin" element={<SignIn />} />
             <Route path="/signup" element={<SignUp />} />
+            <Route path="/login" element={<Login />} />
             <Route path="/account" element={
               <ProtectedRoute>
                 <Account />

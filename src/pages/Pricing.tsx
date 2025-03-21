@@ -1,11 +1,14 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import MembershipTier from '@/components/MembershipTier';
 import { Check } from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 const PricingPage = () => {
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'quarterly'>('monthly');
+
   // 3ヶ月プランの割引価格計算（15%割引）
   const standardMonthlyPrice = 6400;
   const standardQuarterlyPrice = Math.round(standardMonthlyPrice * 3 * 0.85);
@@ -50,54 +53,67 @@ const PricingPage = () => {
             </p>
           </div>
 
-          {/* 支払い期間の切り替えボタン（将来実装用） */}
+          {/* 支払い期間の切り替えボタン */}
           <div className="flex justify-center mb-12">
-            <div className="inline-flex bg-secondary rounded-lg p-1">
-              <Button variant="default" className="rounded-md">月額</Button>
-              <Button variant="ghost" className="rounded-md">3ヶ月</Button>
+            <ToggleGroup 
+              type="single" 
+              value={billingPeriod}
+              onValueChange={(value) => {
+                if (value) setBillingPeriod(value as 'monthly' | 'quarterly');
+              }}
+              className="inline-flex bg-secondary rounded-lg p-1"
+            >
+              <ToggleGroupItem value="monthly" className="rounded-md data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                月額
+              </ToggleGroupItem>
+              <ToggleGroupItem value="quarterly" className="rounded-md data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                3ヶ月
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+          
+          {/* プラン表示 - 条件付きレンダリングで月額/3ヶ月プランを切り替え */}
+          {billingPeriod === 'monthly' ? (
+            // 月額プラン
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+              <MembershipTier
+                title="スタンダードプラン（月額）"
+                price={`¥${standardMonthlyPrice.toLocaleString()}`}
+                period="月"
+                description="基本的な学習コンテンツにアクセスできます"
+                features={standardFeatures}
+              />
+              
+              <MembershipTier
+                title="フィードバックプラン（月額）"
+                price={`¥${feedbackMonthlyPrice.toLocaleString()}`}
+                period="月"
+                description="個別フィードバックとレビューが受けられます"
+                features={feedbackFeatures}
+                isPopular={true}
+              />
             </div>
-          </div>
-          
-          {/* 月額プラン */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 mb-12">
-            <MembershipTier
-              title="スタンダードプラン（月額）"
-              price={`¥${standardMonthlyPrice.toLocaleString()}`}
-              period="月"
-              description="基本的な学習コンテンツにアクセスできます"
-              features={standardFeatures}
-            />
-            
-            <MembershipTier
-              title="フィードバックプラン（月額）"
-              price={`¥${feedbackMonthlyPrice.toLocaleString()}`}
-              period="月"
-              description="個別フィードバックとレビューが受けられます"
-              features={feedbackFeatures}
-              isPopular={true}
-            />
-          </div>
-          
-          {/* 3ヶ月プラン */}
-          <h2 className="text-xl font-semibold text-center mb-6">3ヶ月プラン（15%お得）</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-            <MembershipTier
-              title="スタンダードプラン（3ヶ月）"
-              price={`¥${standardQuarterlyMonthly.toLocaleString()}`}
-              period="月（一括払い）"
-              description={`3ヶ月一括払い ¥${standardQuarterlyPrice.toLocaleString()}（月々の場合と比べて¥${(standardMonthlyPrice * 3 - standardQuarterlyPrice).toLocaleString()}お得）`}
-              features={standardFeatures}
-            />
-            
-            <MembershipTier
-              title="フィードバックプラン（3ヶ月）"
-              price={`¥${feedbackQuarterlyMonthly.toLocaleString()}`}
-              period="月（一括払い）"
-              description={`3ヶ月一括払い ¥${feedbackQuarterlyPrice.toLocaleString()}（月々の場合と比べて¥${(feedbackMonthlyPrice * 3 - feedbackQuarterlyPrice).toLocaleString()}お得）`}
-              features={feedbackFeatures}
-              isPopular={true}
-            />
-          </div>
+          ) : (
+            // 3ヶ月プラン
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+              <MembershipTier
+                title="スタンダードプラン（3ヶ月）"
+                price={`¥${standardQuarterlyMonthly.toLocaleString()}`}
+                period="月（一括払い）"
+                description={`3ヶ月一括払い ¥${standardQuarterlyPrice.toLocaleString()}（月々の場合と比べて¥${(standardMonthlyPrice * 3 - standardQuarterlyPrice).toLocaleString()}お得）`}
+                features={standardFeatures}
+              />
+              
+              <MembershipTier
+                title="フィードバックプラン（3ヶ月）"
+                price={`¥${feedbackQuarterlyMonthly.toLocaleString()}`}
+                period="月（一括払い）"
+                description={`3ヶ月一括払い ¥${feedbackQuarterlyPrice.toLocaleString()}（月々の場合と比べて¥${(feedbackMonthlyPrice * 3 - feedbackQuarterlyPrice).toLocaleString()}お得）`}
+                features={feedbackFeatures}
+                isPopular={true}
+              />
+            </div>
+          )}
         </section>
 
         {/* FAQ セクション */}

@@ -8,7 +8,12 @@ import {
   BillingPeriod, 
   CreateSubscriptionData 
 } from '@/types/subscription';
-import { createCheckoutSession, createCustomerPortalSession, getStripe } from '@/utils/stripe';
+import { 
+  createCheckoutSession, 
+  createCustomerPortalSession, 
+  getStripe, 
+  cancelSubscription as cancelStripeSubscription
+} from '@/utils/stripe';
 
 interface UseSubscriptionReturn {
   subscription: Subscription | null;
@@ -18,6 +23,9 @@ interface UseSubscriptionReturn {
   cancelSubscription: () => Promise<void>;
   manageSubscription: () => Promise<void>;
 }
+
+// SupabaseからサブスクリプションデータをフェッチするためのAPI URL
+const SUBSCRIPTION_API = '/api/subscription';
 
 export function useSubscription(): UseSubscriptionReturn {
   const { user } = useAuth();
@@ -38,24 +46,38 @@ export function useSubscription(): UseSubscriptionReturn {
       setError(null);
 
       try {
-        // 実際の実装ではSupabaseやAPIからデータを取得
-        // 現在はモックデータを返す
-        const mockSubscriptionData = localStorage.getItem('mockSubscription');
+        // APIからサブスクリプションデータを取得
+        const response = await fetch(`${SUBSCRIPTION_API}?userId=${user.id}`);
         
-        if (mockSubscriptionData) {
-          const parsedData = JSON.parse(mockSubscriptionData);
-          // ユーザーIDが一致する場合のみ設定（異なるユーザーがログインした場合用）
-          if (parsedData.userId === user.id) {
-            setSubscription(parsedData);
-          } else {
+        if (!response.ok) {
+          // 404の場合はサブスクリプションがないだけなのでエラーとしない
+          if (response.status === 404) {
             setSubscription(null);
+            return;
           }
-        } else {
-          setSubscription(null);
+          
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'サブスクリプション情報の取得に失敗しました');
         }
+        
+        const data = await response.json();
+        setSubscription(data);
       } catch (err) {
         console.error('サブスクリプション取得エラー:', err);
         setError(err instanceof Error ? err : new Error('サブスクリプション情報の取得に失敗しました'));
+        
+        // デモ実装: エラーが発生した場合、ローカルストレージから取得を試みる
+        const mockSubscriptionData = localStorage.getItem('mockSubscription');
+        if (mockSubscriptionData) {
+          try {
+            const parsedData = JSON.parse(mockSubscriptionData);
+            if (parsedData.userId === user.id) {
+              setSubscription(parsedData);
+            }
+          } catch (parseErr) {
+            console.error('モックデータのパースエラー:', parseErr);
+          }
+        }
       } finally {
         setIsLoading(false);
       }
@@ -87,33 +109,11 @@ export function useSubscription(): UseSubscriptionReturn {
         throw new Error('Stripeの読み込みに失敗しました');
       }
 
-      // 実際の実装では、Stripeチェックアウトにリダイレクト
-      // const { error } = await stripe.redirectToCheckout({ sessionId });
-      // if (error) throw error;
-
-      // モック実装では、直接サブスクリプションを作成
-      const mockSubscription: Subscription = {
-        id: `sub_${Date.now()}`,
-        userId: user.id,
-        planType: data.planType,
-        billingPeriod: data.billingPeriod,
-        status: 'active',
-        currentPeriodStart: new Date().toISOString(),
-        currentPeriodEnd: new Date(
-          Date.now() + (data.billingPeriod === 'monthly' ? 30 : 90) * 24 * 60 * 60 * 1000
-        ).toISOString(),
-        cancelAtPeriodEnd: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        stripeCustomerId: `cus_${Date.now()}`,
-        stripeSubscriptionId: `sub_${Date.now()}`
-      };
-
-      // ローカルストレージに保存（実際の実装ではSupabaseに保存）
-      localStorage.setItem('mockSubscription', JSON.stringify(mockSubscription));
+      // Stripeチェックアウトにリダイレクト
+      const { error } = await stripe.redirectToCheckout({ sessionId });
+      if (error) throw error;
       
-      setSubscription(mockSubscription);
-      toast.success('サブスクリプションの登録が完了しました！');
+      toast.success('Stripeの決済ページに移動します');
     } catch (err) {
       console.error('サブスクリプション作成エラー:', err);
       const errorObj = err instanceof Error ? err : new Error('サブスクリプション作成に失敗しました');
@@ -135,19 +135,29 @@ export function useSubscription(): UseSubscriptionReturn {
     setError(null);
 
     try {
-      // 実際の実装ではStripeのサブスクリプションキャンセル処理
-      // 現在はモックデータを更新
-      const updatedSubscription: Subscription = {
-        ...subscription,
-        status: 'canceled',
-        cancelAtPeriodEnd: true,
-        updatedAt: new Date().toISOString()
-      };
-
-      // ローカルストレージに保存（実際の実装ではSupabaseに保存）
-      localStorage.setItem('mockSubscription', JSON.stringify(updatedSubscription));
+      // StripeのAPIを使用してサブスクリプションをキャンセル
+      await cancelStripeSubscription(subscription.stripeSubscriptionId);
       
+      // API経由でデータベースを更新
+      const response = await fetch(`${SUBSCRIPTION_API}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          subscriptionId: subscription.id,
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'サブスクリプションのキャンセルに失敗しました');
+      }
+      
+      const updatedSubscription = await response.json();
       setSubscription(updatedSubscription);
+      
       toast.success('サブスクリプションのキャンセルが完了しました。期間終了まで引き続きご利用いただけます。');
     } catch (err) {
       console.error('サブスクリプションキャンセルエラー:', err);
@@ -173,10 +183,10 @@ export function useSubscription(): UseSubscriptionReturn {
       // Stripeカスタマーポータルのセッションを作成
       const portalUrl = await createCustomerPortalSession(user.id);
       
-      // 実際の実装ではポータルURLにリダイレクト
-      // window.location.href = portalUrl;
+      // ポータルURLにリダイレクト
+      window.location.href = portalUrl;
       
-      toast.success('Stripeカスタマーポータルへリダイレクトします（モック）');
+      toast.success('Stripeカスタマーポータルへリダイレクトします');
     } catch (err) {
       console.error('サブスクリプション管理エラー:', err);
       const errorObj = err instanceof Error ? err : new Error('サブスクリプション管理画面への遷移に失敗しました');

@@ -1,212 +1,153 @@
 
 import React, { useState } from 'react';
-import Navbar from '@/components/Navbar';
-import { Button } from '@/components/ui/button';
-import MembershipTier from '@/components/MembershipTier';
-import { Check } from 'lucide-react';
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useAuth } from '@/context/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useNavigate } from 'react-router-dom';
 import { BillingPeriod, PlanType } from '@/types/subscription';
+import MembershipTier from '@/components/MembershipTier';
+import { toast } from 'sonner';
 import { 
-  getPlanInfo, 
-  getMonthlyDisplayPrice, 
-  formatPrice 
-} from '@/utils/subscription';
+  Tabs, 
+  TabsContent, 
+  TabsList, 
+  TabsTrigger 
+} from '@/components/ui/tabs';
 
-const PricingPage = () => {
-  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
-  const { user, isLoading: isAuthLoading } = useAuth();
-  const { subscription, createSubscription, isLoading: isSubscriptionLoading } = useSubscription();
+const Pricing = () => {
+  const { user } = useAuth();
+  const { subscription, createSubscription, isLoading } = useSubscription();
   const navigate = useNavigate();
+  const [selectedBillingPeriod, setSelectedBillingPeriod] = useState<BillingPeriod>('monthly');
 
-  // プラン情報の取得
-  const standardPlan = getPlanInfo('standard');
-  const feedbackPlan = getPlanInfo('feedback');
+  // 支払いサイクルに基づいて価格を計算
+  const getPriceDisplay = (basePrice: number): string => {
+    if (selectedBillingPeriod === 'quarterly') {
+      // 四半期プランは15%割引
+      const discountedPrice = basePrice * 3 * 0.85;
+      return `¥${Math.floor(discountedPrice).toLocaleString()}`;
+    }
+    return `¥${basePrice.toLocaleString()}`;
+  };
 
-  // 月額/3ヶ月表示用の価格計算
-  const standardMonthlyPrice = standardPlan.prices.monthly;
-  const standardQuarterlyPrice = standardPlan.prices.quarterly;
-  const standardQuarterlyMonthly = Math.round(standardQuarterlyPrice / 3);
-  
-  const feedbackMonthlyPrice = feedbackPlan.prices.monthly;
-  const feedbackQuarterlyPrice = feedbackPlan.prices.quarterly;
-  const feedbackQuarterlyMonthly = Math.round(feedbackQuarterlyPrice / 3);
+  // 期間の表示テキスト
+  const periodText = selectedBillingPeriod === 'monthly' ? '月額' : '3ヶ月';
 
-  // サブスクリプション処理
-  const handleSubscribe = async (planType: PlanType, period: BillingPeriod) => {
+  // プランの選択処理
+  const handleSelectPlan = async (planType: PlanType) => {
     if (!user) {
-      toast("サブスクリプションを開始するにはログインが必要です");
-      navigate('/signin', { state: { returnUrl: '/pricing' } });
+      toast.info('サブスクリプションを購入するにはログインが必要です');
+      navigate('/login', { state: { from: '/pricing' } });
       return;
     }
 
     try {
-      toast("サブスクリプション処理を開始します...");
-      
       await createSubscription({
-        planType: planType,
-        billingPeriod: period
+        planType,
+        billingPeriod: selectedBillingPeriod
       });
-      
-      // 成功したらアカウントページに遷移
-      navigate('/account');
     } catch (error) {
-      console.error('サブスクリプション処理エラー:', error);
-      toast.error("サブスクリプション処理中にエラーが発生しました。もう一度お試しください。");
+      console.error('サブスクリプション作成エラー:', error);
     }
   };
 
-  // すでにサブスクリプションがある場合のボタンテキスト
-  const getButtonText = (planType: PlanType) => {
-    if (!subscription) return "今すぐ登録";
-    
-    if (subscription.planType === planType) {
-      return subscription.status === 'canceled' 
-        ? "再開する" 
-        : "現在のプラン";
-    }
-    
-    return "プラン変更";
+  // すでに購読中の場合はアカウントページへ
+  const handleExistingSubscription = () => {
+    navigate('/account');
+    toast.info('サブスクリプション管理はアカウントページから行えます');
   };
 
-  // プラン選択処理のヘルパー関数
-  const handlePlanSelection = (planType: PlanType) => {
-    if (!user) {
-      toast("サブスクリプションを開始するにはログインが必要です");
-      navigate('/signin', { state: { returnUrl: '/pricing' } });
-      return;
-    }
+  // 標準プランの特徴
+  const standardFeatures = [
+    '全ての学習コンテンツへのアクセス',
+    'オンデマンド動画レッスン',
+    'プログレストラッキング',
+    '練習問題と小テスト',
+    'コミュニティフォーラムへのアクセス'
+  ];
 
-    // 現在と同じプランを選択した場合は処理しない
-    if (subscription?.planType === planType && subscription?.status !== 'canceled') {
-      toast.info("すでに選択中のプランです");
-      return;
-    }
-
-    handleSubscribe(planType, billingPeriod);
-  };
+  // フィードバックプランの特徴（標準プラン + α）
+  const feedbackFeatures = [
+    ...standardFeatures,
+    '個別フィードバック（月3回まで）',
+    '課題の添削',
+    '質問への優先回答',
+    '月1回のグループQ&Aセッション'
+  ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      
-      <main className="pt-20 md:pt-24">
-        <section className="container max-w-6xl mx-auto px-4 py-12 md:py-20">
-          <div className="text-center mb-12 md:mb-16">
-            <h1 className="text-3xl md:text-4xl font-bold mb-4">料金プラン</h1>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              あなたの学習スタイルに合わせた柔軟なプランをご用意しています。
-              いつでもプランの変更が可能です。
-            </p>
-          </div>
+    <div className="container max-w-6xl mx-auto px-4 py-16">
+      <div className="text-center mb-12">
+        <h1 className="text-3xl md:text-4xl font-bold mb-4">シンプルでわかりやすい料金体系</h1>
+        <p className="text-xl text-muted-foreground">
+          あなたの学習スタイルに合わせて、最適なプランをお選びください
+        </p>
+      </div>
 
-          {/* 支払い期間の切り替えボタン */}
-          <div className="flex justify-center mb-12">
-            <ToggleGroup 
-              type="single" 
-              value={billingPeriod}
-              onValueChange={(value) => {
-                if (value) setBillingPeriod(value as BillingPeriod);
-              }}
-              className="inline-flex bg-secondary rounded-lg p-1"
-            >
-              <ToggleGroupItem value="monthly" className="rounded-md data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
-                月額
-              </ToggleGroupItem>
-              <ToggleGroupItem value="quarterly" className="rounded-md data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
-                3ヶ月
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </div>
-          
-          {/* プラン表示 - 条件付きレンダリングで月額/3ヶ月プランを切り替え */}
-          {billingPeriod === 'monthly' ? (
-            // 月額プラン
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-              <MembershipTier
-                title="スタンダードプラン（月額）"
-                price={formatPrice(standardMonthlyPrice)}
-                period="月"
-                description="基本的な学習コンテンツにアクセスできます"
-                features={standardPlan.features}
-                buttonText={getButtonText('standard')}
-                onClick={() => handleSubscribe('standard', 'monthly')}
-                buttonVariant={subscription?.planType === 'standard' && subscription?.status !== 'canceled' ? "outline" : "default"}
-              />
-              
-              <MembershipTier
-                title="フィードバックプラン（月額）"
-                price={formatPrice(feedbackMonthlyPrice)}
-                period="月"
-                description="個別フィードバックとレビューが受けられます"
-                features={feedbackPlan.features}
-                isPopular={true}
-                buttonText={getButtonText('feedback')}
-                onClick={() => handleSubscribe('feedback', 'monthly')}
-                buttonVariant={subscription?.planType === 'feedback' && subscription?.status !== 'canceled' ? "outline" : "default"}
-              />
-            </div>
-          ) : (
-            // 3ヶ月プラン
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-              <MembershipTier
-                title="スタンダードプラン（3ヶ月）"
-                price={formatPrice(standardQuarterlyMonthly)}
-                period="月（一括払い）"
-                description={`3ヶ月一括払い ${formatPrice(standardQuarterlyPrice)}（月々の場合と比べて${formatPrice(standardMonthlyPrice * 3 - standardQuarterlyPrice)}お得）`}
-                features={standardPlan.features}
-                buttonText={getButtonText('standard')}
-                onClick={() => handleSubscribe('standard', 'quarterly')}
-                buttonVariant={subscription?.planType === 'standard' && subscription?.status !== 'canceled' ? "outline" : "default"}
-              />
-              
-              <MembershipTier
-                title="フィードバックプラン（3ヶ月）"
-                price={formatPrice(feedbackQuarterlyMonthly)}
-                period="月（一括払い）"
-                description={`3ヶ月一括払い ${formatPrice(feedbackQuarterlyPrice)}（月々の場合と比べて${formatPrice(feedbackMonthlyPrice * 3 - feedbackQuarterlyPrice)}お得）`}
-                features={feedbackPlan.features}
-                isPopular={true}
-                buttonText={getButtonText('feedback')}
-                onClick={() => handleSubscribe('feedback', 'quarterly')}
-                buttonVariant={subscription?.planType === 'feedback' && subscription?.status !== 'canceled' ? "outline" : "default"}
-              />
-            </div>
-          )}
-        </section>
+      <div className="flex justify-center mb-8">
+        <Tabs 
+          defaultValue="monthly" 
+          value={selectedBillingPeriod}
+          onValueChange={(value) => setSelectedBillingPeriod(value as BillingPeriod)}
+          className="w-full max-w-md"
+        >
+          <TabsList className="grid grid-cols-2 w-full">
+            <TabsTrigger value="monthly">月額プラン</TabsTrigger>
+            <TabsTrigger value="quarterly">
+              3ヶ月プラン 
+              <span className="ml-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">
+                15%お得
+              </span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
 
-        {/* FAQ セクション */}
-        <section className="container max-w-4xl mx-auto px-4 py-12 md:py-20">
-          <h2 className="text-2xl md:text-3xl font-bold text-center mb-8">よくある質問</h2>
-          
-          <div className="space-y-6">
-            <div className="bg-card border rounded-lg p-6">
-              <h3 className="text-lg font-semibold mb-2">サブスクリプションはいつでもキャンセルできますか？</h3>
-              <p className="text-muted-foreground">はい、サブスクリプションはいつでもキャンセルできます。キャンセル後も、支払い済み期間の終了まではサービスをご利用いただけます。</p>
-            </div>
-            
-            <div className="bg-card border rounded-lg p-6">
-              <h3 className="text-lg font-semibold mb-2">プランを途中で変更することはできますか？</h3>
-              <p className="text-muted-foreground">はい、いつでもプランを変更することができます。アップグレードの場合は即時反映され、ダウングレードの場合は次の請求サイクルから適用されます。</p>
-            </div>
-            
-            <div className="bg-card border rounded-lg p-6">
-              <h3 className="text-lg font-semibold mb-2">支払い方法は何がありますか？</h3>
-              <p className="text-muted-foreground">クレジットカード（Visa、Mastercard、American Express）でのお支払いに対応しています。</p>
-            </div>
-            
-            <div className="bg-card border rounded-lg p-6">
-              <h3 className="text-lg font-semibold mb-2">返金ポリシーはありますか？</h3>
-              <p className="text-muted-foreground">サブスクリプション開始から14日以内であれば、全額返金いたします。詳細についてはカスタマーサポートまでお問い合わせください。</p>
-            </div>
+      <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+        {/* スタンダードプラン */}
+        <MembershipTier
+          title="スタンダードプラン"
+          description="基本的な学習コンテンツにアクセスできるプラン"
+          price={getPriceDisplay(2980)}
+          period={periodText}
+          features={standardFeatures}
+          buttonText={subscription ? 'アカウント管理' : 'スタンダードプランに登録'}
+          onClick={subscription ? handleExistingSubscription : () => handleSelectPlan('standard')}
+          buttonVariant={subscription ? 'outline' : 'default'}
+        />
+
+        {/* フィードバックプラン */}
+        <MembershipTier
+          title="フィードバックプラン"
+          description="個別フィードバックを受けられるプレミアムプラン"
+          price={getPriceDisplay(4980)}
+          period={periodText}
+          features={feedbackFeatures}
+          isPopular={true}
+          buttonText={subscription ? 'アカウント管理' : 'フィードバックプランに登録'}
+          onClick={subscription ? handleExistingSubscription : () => handleSelectPlan('feedback')}
+          buttonVariant={subscription ? 'outline' : 'default'}
+        />
+      </div>
+
+      <div className="mt-12 max-w-2xl mx-auto p-6 bg-muted rounded-xl">
+        <h3 className="text-xl font-semibold mb-4">よくある質問</h3>
+        <div className="space-y-4">
+          <div>
+            <h4 className="font-medium mb-2">サブスクリプションはいつでもキャンセルできますか？</h4>
+            <p className="text-muted-foreground">はい、いつでもキャンセル可能です。キャンセル後も支払い期間の終了まではサービスをご利用いただけます。</p>
           </div>
-        </section>
-      </main>
+          <div>
+            <h4 className="font-medium mb-2">プランの変更はできますか？</h4>
+            <p className="text-muted-foreground">はい、アカウントページからいつでもプランを変更できます。アップグレードは即時反映され、ダウングレードは次の請求期間から適用されます。</p>
+          </div>
+          <div>
+            <h4 className="font-medium mb-2">支払い方法は何がありますか？</h4>
+            <p className="text-muted-foreground">クレジットカード（Visa、Mastercard、American Express）でのお支払いに対応しています。</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
 
-export default PricingPage;
+export default Pricing;

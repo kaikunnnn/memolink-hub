@@ -12,6 +12,23 @@ export const getStripe = async () => {
   return stripePromise;
 };
 
+// プランIDを取得する関数
+export const getPlanId = (planType: PlanType, billingPeriod: BillingPeriod): string => {
+  // 実際のStripeプランID
+  const planIds = {
+    standard: {
+      monthly: 'price_standard_monthly',
+      quarterly: 'price_standard_quarterly'
+    },
+    feedback: {
+      monthly: 'price_feedback_monthly',
+      quarterly: 'price_feedback_quarterly'
+    }
+  };
+  
+  return planIds[planType][billingPeriod];
+};
+
 // チェックアウトセッションを作成するための関数
 export const createCheckoutSession = async (
   planType: PlanType, 
@@ -19,29 +36,27 @@ export const createCheckoutSession = async (
   userId: string
 ) => {
   try {
-    // 通常はバックエンドAPIを呼び出してチェックアウトセッションを作成
-    // この例ではモック実装
-    console.log(`Stripe checkout session for ${planType} (${billingPeriod}) created for user ${userId}`);
+    // バックエンドAPIを呼び出してチェックアウトセッションを作成
+    const response = await fetch('/api/create-checkout-session', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        planType,
+        billingPeriod,
+        userId,
+        planId: getPlanId(planType, billingPeriod)
+      }),
+    });
     
-    // 実際の実装では以下のようなAPIコールを行います
-    // const response = await fetch('/api/create-checkout-session', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify({
-    //     planType,
-    //     billingPeriod,
-    //     userId,
-    //   }),
-    // });
-    //
-    // if (!response.ok) throw new Error('チェックアウトセッションの作成に失敗しました');
-    // const data = await response.json();
-    // return data.sessionId;
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'チェックアウトセッションの作成に失敗しました');
+    }
     
-    // モック実装では仮のセッションIDを返す
-    return `cs_mock_${Date.now()}`;
+    const data = await response.json();
+    return data.sessionId;
   } catch (error) {
     console.error('Stripeチェックアウトセッション作成エラー:', error);
     throw new Error('サブスクリプション処理中にエラーが発生しました');
@@ -51,29 +66,53 @@ export const createCheckoutSession = async (
 // ポータルセッションを作成するための関数
 export const createCustomerPortalSession = async (userId: string) => {
   try {
-    // 通常はバックエンドAPIを呼び出してポータルセッションを作成
-    // この例ではモック実装
-    console.log(`Stripe customer portal session created for user ${userId}`);
+    // バックエンドAPIを呼び出してポータルセッションを作成
+    const response = await fetch('/api/create-portal-session', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId,
+      }),
+    });
     
-    // 実際の実装では以下のようなAPIコールを行います
-    // const response = await fetch('/api/create-portal-session', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify({
-    //     userId,
-    //   }),
-    // });
-    //
-    // if (!response.ok) throw new Error('ポータルセッションの作成に失敗しました');
-    // const data = await response.json();
-    // return data.url;
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'ポータルセッションの作成に失敗しました');
+    }
     
-    // モック実装では仮のURLを返す
-    return 'https://billing.stripe.com/mock-session';
+    const data = await response.json();
+    return data.url;
   } catch (error) {
     console.error('Stripeポータルセッション作成エラー:', error);
     throw new Error('ポータルセッション作成中にエラーが発生しました');
+  }
+};
+
+// サブスクリプションをキャンセルするための関数
+export const cancelSubscription = async (subscriptionId: string) => {
+  try {
+    // バックエンドAPIを呼び出してサブスクリプションをキャンセル
+    const response = await fetch('/api/cancel-subscription', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        subscriptionId,
+      }),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'サブスクリプションのキャンセルに失敗しました');
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Stripeサブスクリプションキャンセルエラー:', error);
+    throw new Error('サブスクリプションのキャンセル中にエラーが発生しました');
   }
 };

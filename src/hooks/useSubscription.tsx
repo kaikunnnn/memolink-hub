@@ -1,11 +1,11 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { BillingPeriod, PlanType } from '@/types/subscription';
+import { BillingPeriod, PlanType, Subscription } from '@/types/subscription';
 import { toast } from 'sonner';
-import { getSubscription } from '@/api/mock/subscription';
 import { createCheckoutSession, createCustomerPortalSession, cancelSubscription } from '@/utils/stripe';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
 
 interface CreateSubscriptionParams {
   planType: PlanType;
@@ -15,7 +15,7 @@ interface CreateSubscriptionParams {
 export const useSubscription = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [subscription, setSubscription] = useState<any>(null);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -25,8 +25,41 @@ export const useSubscription = () => {
 
     setIsLoading(true);
     try {
-      const subscriptionData = await getSubscription(user.id);
-      setSubscription(subscriptionData);
+      // Supabaseからサブスクリプション情報を取得
+      const { data: subscriptionData, error: subscriptionError } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (subscriptionError && subscriptionError.code !== 'PGRST116') {
+        // PGRST116はデータが見つからないエラーなので無視
+        console.error('サブスクリプション取得エラー:', subscriptionError);
+        throw new Error('サブスクリプション情報の取得に失敗しました');
+      }
+
+      if (subscriptionData) {
+        // APIレスポンスをフロントエンドの型に変換
+        setSubscription({
+          id: subscriptionData.id,
+          userId: subscriptionData.user_id,
+          planType: subscriptionData.plan_type as PlanType,
+          billingPeriod: subscriptionData.billing_period as BillingPeriod,
+          status: subscriptionData.status as any,
+          currentPeriodStart: subscriptionData.current_period_start,
+          currentPeriodEnd: subscriptionData.current_period_end,
+          cancelAtPeriodEnd: subscriptionData.cancel_at_period_end,
+          createdAt: subscriptionData.created_at,
+          updatedAt: subscriptionData.updated_at,
+          stripeCustomerId: subscriptionData.stripe_customer_id,
+          stripeSubscriptionId: subscriptionData.stripe_subscription_id
+        });
+      } else {
+        setSubscription(null);
+      }
     } catch (err) {
       console.error('サブスクリプション取得エラー:', err);
       setError(err instanceof Error ? err : new Error('サブスクリプション情報の取得に失敗しました'));
@@ -45,18 +78,8 @@ export const useSubscription = () => {
 
     setIsLoading(true);
     try {
-      const sessionId = await createCheckoutSession(planType, billingPeriod, user.id);
-      toast.success('サブスクリプションが作成されました');
-      
-      // 実際のStripeチェックアウトページへリダイレクトする代わりに
-      // サブスクリプション情報を再取得する
-      await fetchSubscription();
-      
-      // 通常はStripeのチェックアウトページへリダイレクト
-      // const stripe = await getStripe();
-      // await stripe?.redirectToCheckout({ sessionId });
-      
-      navigate('/account');
+      await createCheckoutSession(planType, billingPeriod);
+      // リダイレクト後の処理のためここではtoastを表示しない
     } catch (err) {
       console.error('サブスクリプション作成エラー:', err);
       toast.error(err instanceof Error ? err.message : 'サブスクリプションの作成に失敗しました');
@@ -75,14 +98,8 @@ export const useSubscription = () => {
 
     setIsLoading(true);
     try {
-      const url = await createCustomerPortalSession(user.id);
-      
-      // 実際のStripeポータルページへリダイレクトする代わりに
-      // トーストメッセージを表示
-      toast.info('本番環境ではStripeの顧客ポータルが開きます');
-      
-      // 通常はStripeの顧客ポータルへリダイレクト
-      // window.location.href = url;
+      await createCustomerPortalSession();
+      // リダイレクト後の処理のためここではtoastを表示しない
     } catch (err) {
       console.error('ポータルセッション作成エラー:', err);
       toast.error(err instanceof Error ? err.message : 'ポータルセッションの作成に失敗しました');
@@ -94,14 +111,14 @@ export const useSubscription = () => {
 
   // サブスクリプションのキャンセル
   const cancelUserSubscription = async () => {
-    if (!user?.id || !subscription?.stripe_subscription_id) {
+    if (!user?.id || !subscription?.stripeSubscriptionId) {
       toast.error('有効なサブスクリプションがありません');
       return;
     }
 
     setIsLoading(true);
     try {
-      await cancelSubscription(subscription.stripe_subscription_id, user.id);
+      await cancelSubscription(subscription.stripeSubscriptionId);
       toast.success('サブスクリプションは現在の期間終了時にキャンセルされます');
       await fetchSubscription();
     } catch (err) {
@@ -112,6 +129,17 @@ export const useSubscription = () => {
       setIsLoading(false);
     }
   };
+
+  // URLパラメータによる処理
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('success') === 'true') {
+      toast.success('サブスクリプションが正常に作成されました');
+      fetchSubscription();
+    } else if (params.get('canceled') === 'true') {
+      toast.info('サブスクリプションの作成がキャンセルされました');
+    }
+  }, []);
 
   // ユーザーIDが変更されたら（ログイン/ログアウト時）サブスクリプション情報を再取得
   useEffect(() => {

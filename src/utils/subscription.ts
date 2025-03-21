@@ -15,6 +15,10 @@ const PLAN_DATA: Record<PlanType, PlanInfo> = {
     prices: {
       monthly: 0,
       quarterly: 0
+    },
+    stripeIds: {
+      monthly: '',
+      quarterly: ''
     }
   },
   standard: {
@@ -31,6 +35,10 @@ const PLAN_DATA: Record<PlanType, PlanInfo> = {
     prices: {
       monthly: 2980,
       quarterly: Math.round(2980 * 3 * 0.85) // 15%割引
+    },
+    stripeIds: {
+      monthly: 'price_standard_monthly',
+      quarterly: 'price_standard_quarterly'
     }
   },
   feedback: {
@@ -51,6 +59,10 @@ const PLAN_DATA: Record<PlanType, PlanInfo> = {
     prices: {
       monthly: 4980,
       quarterly: Math.round(4980 * 3 * 0.85) // 15%割引
+    },
+    stripeIds: {
+      monthly: 'price_feedback_monthly',
+      quarterly: 'price_feedback_quarterly'
     }
   }
 };
@@ -95,6 +107,12 @@ export function formatDate(dateString: string): string {
     month: 'long',
     day: 'numeric'
   }).format(date);
+}
+
+// Stripeの価格IDを取得
+export function getStripePriceId(planType: PlanType, billingPeriod: BillingPeriod): string {
+  if (planType === 'free') return '';
+  return PLAN_DATA[planType].stripeIds[billingPeriod];
 }
 
 // プラン名表示用のマッピング

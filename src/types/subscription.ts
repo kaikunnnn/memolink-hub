@@ -42,6 +42,10 @@ export interface PlanInfo {
     monthly: number;
     quarterly: number;
   };
+  stripeIds: {
+    monthly: string;
+    quarterly: string;
+  };
 }
 
 // 拡張されたBadgeバリアント

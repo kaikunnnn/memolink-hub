@@ -1,14 +1,10 @@
 
 import { loadStripe } from '@stripe/stripe-js';
 import { PlanType, BillingPeriod } from '@/types/subscription';
-import { 
-  createSubscription as mockCreateSubscription,
-  createCustomerPortalUrl,
-  createCheckoutSessionUrl,
-  cancelSubscription as mockCancelSubscription
-} from '@/api/mock/subscription';
+import { getStripePriceId } from '@/utils/subscription';
+import { supabase } from '@/lib/supabase';
 
-// 環境変数またはハードコードされたパブリックキー（開発環境ではダミー値）
+// 環境変数またはハードコードされたパブリックキー
 const STRIPE_PUBLIC_KEY = import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_dummy_key';
 
 // Stripeの初期化
@@ -17,40 +13,42 @@ export const getStripe = async () => {
   return stripePromise;
 };
 
-// プランIDを取得する関数
-export const getPlanId = (planType: PlanType, billingPeriod: BillingPeriod): string => {
-  // 実際のStripeプランID（開発環境ではダミー値）
-  const planIds = {
-    standard: {
-      monthly: 'price_standard_monthly',
-      quarterly: 'price_standard_quarterly'
-    },
-    feedback: {
-      monthly: 'price_feedback_monthly',
-      quarterly: 'price_feedback_quarterly'
-    }
-  };
-  
-  return planIds[planType][billingPeriod];
-};
-
 // チェックアウトセッションを作成するための関数
 export const createCheckoutSession = async (
   planType: PlanType, 
-  billingPeriod: BillingPeriod,
-  userId: string
+  billingPeriod: BillingPeriod
 ) => {
   try {
-    // 開発環境ではモックAPIを使用
-    // 本番環境では実際のAPIエンドポイントを呼び出す
-    const sessionUrl = await createCheckoutSessionUrl(planType, billingPeriod, userId);
+    const session = supabase.auth.getSession();
+    if (!session) {
+      throw new Error('認証情報が見つかりません');
+    }
+
+    // 開発環境の場合はモックデータを使用
+    if (import.meta.env.DEV && !import.meta.env.VITE_USE_REAL_STRIPE) {
+      // モックサブスクリプションを作成して成功を返す
+      const { data: mockSubscription } = await supabase.functions.invoke('mock-checkout-session', {
+        body: { planType, billingPeriod },
+      });
+      return mockSubscription.sessionId;
+    }
+
+    // 本番環境ではSupabase Edge Functionを使用
+    const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+      body: { 
+        planType, 
+        billingPeriod,
+        returnUrl: window.location.origin
+      },
+    });
+
+    if (error) throw error;
+
+    // Stripeのチェックアウトページへリダイレクト
+    window.location.href = data.url;
     
-    // 実際のStripeチェックアウトページへリダイレクトする代わりに
-    // モックサブスクリプションを作成して成功を返す
-    await mockCreateSubscription(userId, planType, billingPeriod);
-    
-    // 通常はStripeセッションIDを返すが、開発環境ではダミー値
-    return `cs_test_${Math.random().toString(36).substring(2, 15)}`;
+    // 通常はここに到達しない（リダイレクト前）
+    return null;
   } catch (error) {
     console.error('Stripeチェックアウトセッション作成エラー:', error);
     throw new Error('サブスクリプション処理中にエラーが発生しました');
@@ -58,12 +56,25 @@ export const createCheckoutSession = async (
 };
 
 // ポータルセッションを作成するための関数
-export const createCustomerPortalSession = async (userId: string) => {
+export const createCustomerPortalSession = async () => {
   try {
-    // 開発環境ではモックAPIを使用
-    const portalUrl = await createCustomerPortalUrl(userId);
+    // 開発環境の場合はモックデータを使用
+    if (import.meta.env.DEV && !import.meta.env.VITE_USE_REAL_STRIPE) {
+      return `/account?portal=true&mock=true`;
+    }
+
+    // 本番環境ではSupabase Edge Functionを使用
+    const { data, error } = await supabase.functions.invoke('create-portal-session', {
+      body: { returnUrl: window.location.origin + '/account' },
+    });
+
+    if (error) throw error;
+
+    // Stripeの顧客ポータルへリダイレクト
+    window.location.href = data.url;
     
-    return portalUrl;
+    // 通常はここに到達しない（リダイレクト前）
+    return null;
   } catch (error) {
     console.error('Stripeポータルセッション作成エラー:', error);
     throw new Error('ポータルセッション作成中にエラーが発生しました');
@@ -71,12 +82,18 @@ export const createCustomerPortalSession = async (userId: string) => {
 };
 
 // サブスクリプションをキャンセルするための関数
-export const cancelSubscription = async (subscriptionId: string, userId: string) => {
+export const cancelSubscription = async (subscriptionId: string) => {
   try {
-    // 開発環境ではモックAPIを使用
-    const subscription = await mockCancelSubscription(subscriptionId, userId);
-    
-    return subscription;
+    // 開発環境の場合はモックデータを使用
+    if (import.meta.env.DEV && !import.meta.env.VITE_USE_REAL_STRIPE) {
+      const { data: mockCancellation } = await supabase.functions.invoke('mock-cancel-subscription', {
+        body: { subscriptionId },
+      });
+      return mockCancellation;
+    }
+
+    // 本番環境では顧客ポータルを使用
+    return await createCustomerPortalSession();
   } catch (error) {
     console.error('Stripeサブスクリプションキャンセルエラー:', error);
     throw new Error('サブスクリプションのキャンセル中にエラーが発生しました');

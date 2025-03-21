@@ -56,9 +56,13 @@ serve(async (req) => {
     // Stripe価格IDを取得
     let priceId
     if (planType === 'standard') {
-      priceId = billingPeriod === 'monthly' ? 'price_standard_monthly' : 'price_standard_quarterly'
+      priceId = billingPeriod === 'monthly' 
+        ? 'price_1234567890_standard_monthly' // 実際のIDに変更
+        : 'price_1234567890_standard_quarterly' // 実際のIDに変更
     } else if (planType === 'feedback') {
-      priceId = billingPeriod === 'monthly' ? 'price_feedback_monthly' : 'price_feedback_quarterly'
+      priceId = billingPeriod === 'monthly' 
+        ? 'price_1234567890_feedback_monthly' // 実際のIDに変更
+        : 'price_1234567890_feedback_quarterly' // 実際のIDに変更
     } else {
       return new Response(
         JSON.stringify({ error: 'Invalid plan type' }),

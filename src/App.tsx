@@ -1,71 +1,68 @@
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/context/AuthContext";
-import ProtectedRoute from "@/components/ProtectedRoute";
-import PlanProtectedRoute from "@/components/PlanProtectedRoute";
-import Index from "./pages/Index";
-import Courses from "./pages/Courses";
-import VideoPlayer from "./pages/VideoPlayer";
-import Pricing from "./pages/Pricing";
-import SignIn from "./pages/SignIn";
-import SignUp from "./pages/SignUp";
-import Login from "./pages/Login";
-import Account from "./pages/Account";
-import PremiumContent from "./pages/PremiumContent";
-import NotFound from "./pages/NotFound";
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import Index from '@/pages/Index';
+import Courses from '@/pages/Courses';
+import VideoPlayer from '@/pages/VideoPlayer';
+import NotFound from '@/pages/NotFound';
+import { Navbar } from '@/components/Navbar';
+import { ThemeProvider } from '@/components/ui/theme-provider';
+import { Toaster } from '@/components/ui/sonner';
+import './App.css';
+import { AuthProvider } from '@/context/AuthContext';
+import { Login } from '@/pages/Login';
+import { SignIn } from '@/pages/SignIn';
+import { SignUp } from '@/pages/SignUp';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import Account from '@/pages/Account';
+import PremiumContent from '@/pages/PremiumContent';
+import Pricing from '@/pages/Pricing';
+import PlanProtectedRoute from '@/components/PlanProtectedRoute';
 
-const queryClient = new QueryClient();
-
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/courses" element={<Courses />} />
-            <Route path="/courses/:courseId" element={<VideoPlayer />} />
-            <Route path="/pricing" element={<Pricing />} />
-            <Route path="/signin" element={<SignIn />} />
-            <Route path="/signup" element={<SignUp />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/account" element={
-              <ProtectedRoute>
-                <Account />
-              </ProtectedRoute>
-            } />
-            <Route path="/premium" element={
-              <ProtectedRoute>
-                <PremiumContent />
-              </ProtectedRoute>
-            } />
-            <Route path="/premium/standard" element={
-              <ProtectedRoute>
-                <PlanProtectedRoute requiredPlan="standard">
-                  <PremiumContent />
-                </PlanProtectedRoute>
-              </ProtectedRoute>
-            } />
-            <Route path="/premium/feedback" element={
-              <ProtectedRoute>
-                <PlanProtectedRoute requiredPlan="feedback">
-                  <PremiumContent />
-                </PlanProtectedRoute>
-              </ProtectedRoute>
-            } />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  return (
+    <ThemeProvider defaultTheme="system" storageKey="ui-theme">
+      <AuthProvider>
+        <Router>
+          <div className="flex flex-col min-h-screen">
+            <Navbar />
+            <main className="flex-1">
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/courses" element={<Courses />} />
+                <Route path="/video/:id" element={<VideoPlayer />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/signin" element={<SignIn />} />
+                <Route path="/signup" element={<SignUp />} />
+                <Route path="/premium" element={<PremiumContent />} />
+                <Route path="/pricing" element={<Pricing />} />
+                <Route 
+                  path="/account" 
+                  element={
+                    <ProtectedRoute>
+                      <Account />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/feedback" 
+                  element={
+                    <PlanProtectedRoute requiredPlan="feedback">
+                      <div className="container py-10">
+                        <h1 className="text-2xl font-bold mb-4">フィードバックコンテンツ</h1>
+                        <p>こちらはフィードバックプラン専用のコンテンツです。</p>
+                      </div>
+                    </PlanProtectedRoute>
+                  } 
+                />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </main>
+          </div>
+          <Toaster position="top-center" richColors />
+        </Router>
+      </AuthProvider>
+    </ThemeProvider>
+  );
+};
 
 export default App;

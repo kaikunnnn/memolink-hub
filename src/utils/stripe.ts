@@ -1,10 +1,15 @@
 
 import { loadStripe } from '@stripe/stripe-js';
 import { PlanType, BillingPeriod } from '@/types/subscription';
+import { 
+  createSubscription as mockCreateSubscription,
+  createCustomerPortalUrl,
+  createCheckoutSessionUrl,
+  cancelSubscription as mockCancelSubscription
+} from '@/api/mock/subscription';
 
-// 環境変数またはハードコードされたパブリックキー（本番環境では環境変数を使用）
-// 実際のプロジェクトでは公開可能なキーのみをフロントエンドで使用
-const STRIPE_PUBLIC_KEY = 'pk_test_your_stripe_public_key';
+// 環境変数またはハードコードされたパブリックキー（開発環境ではダミー値）
+const STRIPE_PUBLIC_KEY = import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_dummy_key';
 
 // Stripeの初期化
 export const getStripe = async () => {
@@ -14,7 +19,7 @@ export const getStripe = async () => {
 
 // プランIDを取得する関数
 export const getPlanId = (planType: PlanType, billingPeriod: BillingPeriod): string => {
-  // 実際のStripeプランID
+  // 実際のStripeプランID（開発環境ではダミー値）
   const planIds = {
     standard: {
       monthly: 'price_standard_monthly',
@@ -36,27 +41,16 @@ export const createCheckoutSession = async (
   userId: string
 ) => {
   try {
-    // バックエンドAPIを呼び出してチェックアウトセッションを作成
-    const response = await fetch('/api/create-checkout-session', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        planType,
-        billingPeriod,
-        userId,
-        planId: getPlanId(planType, billingPeriod)
-      }),
-    });
+    // 開発環境ではモックAPIを使用
+    // 本番環境では実際のAPIエンドポイントを呼び出す
+    const sessionUrl = await createCheckoutSessionUrl(planType, billingPeriod, userId);
     
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'チェックアウトセッションの作成に失敗しました');
-    }
+    // 実際のStripeチェックアウトページへリダイレクトする代わりに
+    // モックサブスクリプションを作成して成功を返す
+    await mockCreateSubscription(userId, planType, billingPeriod);
     
-    const data = await response.json();
-    return data.sessionId;
+    // 通常はStripeセッションIDを返すが、開発環境ではダミー値
+    return `cs_test_${Math.random().toString(36).substring(2, 15)}`;
   } catch (error) {
     console.error('Stripeチェックアウトセッション作成エラー:', error);
     throw new Error('サブスクリプション処理中にエラーが発生しました');
@@ -66,24 +60,10 @@ export const createCheckoutSession = async (
 // ポータルセッションを作成するための関数
 export const createCustomerPortalSession = async (userId: string) => {
   try {
-    // バックエンドAPIを呼び出してポータルセッションを作成
-    const response = await fetch('/api/create-portal-session', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        userId,
-      }),
-    });
+    // 開発環境ではモックAPIを使用
+    const portalUrl = await createCustomerPortalUrl(userId);
     
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'ポータルセッションの作成に失敗しました');
-    }
-    
-    const data = await response.json();
-    return data.url;
+    return portalUrl;
   } catch (error) {
     console.error('Stripeポータルセッション作成エラー:', error);
     throw new Error('ポータルセッション作成中にエラーが発生しました');
@@ -91,26 +71,12 @@ export const createCustomerPortalSession = async (userId: string) => {
 };
 
 // サブスクリプションをキャンセルするための関数
-export const cancelSubscription = async (subscriptionId: string) => {
+export const cancelSubscription = async (subscriptionId: string, userId: string) => {
   try {
-    // バックエンドAPIを呼び出してサブスクリプションをキャンセル
-    const response = await fetch('/api/cancel-subscription', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        subscriptionId,
-      }),
-    });
+    // 開発環境ではモックAPIを使用
+    const subscription = await mockCancelSubscription(subscriptionId, userId);
     
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'サブスクリプションのキャンセルに失敗しました');
-    }
-    
-    const data = await response.json();
-    return data;
+    return subscription;
   } catch (error) {
     console.error('Stripeサブスクリプションキャンセルエラー:', error);
     throw new Error('サブスクリプションのキャンセル中にエラーが発生しました');

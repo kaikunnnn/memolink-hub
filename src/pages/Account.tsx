@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import SupabaseSetupGuide from '@/components/SupabaseSetupGuide';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,95 +7,38 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-
-interface SubscriptionInfo {
-  plan: 'free' | 'standard' | 'feedback';
-  period: 'monthly' | 'quarterly' | null;
-  status: 'active' | 'canceled' | 'past_due';
-  currentPeriodEnd: string; // ISO date string
-}
+import { useSubscription } from '@/hooks/useSubscription';
+import { useNavigate } from 'react-router-dom';
+import { 
+  formatDate, 
+  planDisplayNames, 
+  periodDisplayNames, 
+  statusDisplayInfo 
+} from '@/utils/subscription';
 
 const Account = () => {
   const { user, isConfigured } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('profile');
-  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // サブスクリプション情報を取得する（実際にはAPIから取得）
-  useEffect(() => {
-    if (user) {
-      // モックデータ - 実際にはAPIから取得します
-      // 本番環境では、ユーザーIDを使用してSupabaseから取得するか、
-      // StripeのAPIを呼び出すカスタムAPIエンドポイントを呼び出します
-      const mockSubscription: SubscriptionInfo = {
-        plan: 'standard',
-        period: 'monthly',
-        status: 'active',
-        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 今から30日後
-      };
-
-      setTimeout(() => {
-        setSubscription(mockSubscription);
-        setIsLoading(false);
-      }, 1000); // APIリクエストをシミュレート
-    } else {
-      setIsLoading(false);
-    }
-  }, [user]);
+  const { 
+    subscription, 
+    isLoading: isSubscriptionLoading, 
+    cancelSubscription 
+  } = useSubscription();
 
   // サブスクリプションキャンセルの処理
   const handleCancelSubscription = async () => {
     try {
       toast("サブスクリプションのキャンセル処理中...");
-      // 実際にはここでキャンセル処理のAPIを呼び出します
-      
-      // モックのためにUIを更新
-      setTimeout(() => {
-        setSubscription(prev => 
-          prev ? { ...prev, status: 'canceled' } : null
-        );
-        toast.success("サブスクリプションがキャンセルされました。期間終了まで引き続きご利用いただけます。");
-      }, 1000);
+      await cancelSubscription();
     } catch (error) {
       console.error('キャンセル処理エラー:', error);
-      toast.error("キャンセル処理中にエラーが発生しました。もう一度お試しください。");
     }
   };
 
   // プラン変更ページへの遷移
   const handleChangePlan = () => {
-    window.location.href = '/pricing';
-  };
-
-  // サブスクリプションの日付をフォーマット
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('ja-JP', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    }).format(date);
-  };
-
-  // プラン名表示用のマッピング
-  const planDisplayNames = {
-    free: '無料プラン',
-    standard: 'スタンダードプラン',
-    feedback: 'フィードバックプラン'
-  };
-
-  // 期間表示用のマッピング
-  const periodDisplayNames = {
-    monthly: '月額',
-    quarterly: '3ヶ月',
-    null: ''
-  };
-
-  // ステータス表示用のマッピング
-  const statusDisplayInfo = {
-    active: { label: '有効', color: 'success' },
-    canceled: { label: 'キャンセル済み（期間終了まで有効）', color: 'warning' },
-    past_due: { label: '支払い期限超過', color: 'destructive' }
+    navigate('/pricing');
   };
   
   // Supabaseが設定されていない場合
@@ -148,7 +91,7 @@ const Account = () => {
                 <CardDescription>現在のプランと支払い情報を確認できます</CardDescription>
               </CardHeader>
               <CardContent>
-                {isLoading ? (
+                {isSubscriptionLoading ? (
                   <div className="py-6 flex justify-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
                   </div>
@@ -157,14 +100,16 @@ const Account = () => {
                     <div className="flex items-center justify-between">
                       <p className="font-medium">現在のプラン</p>
                       <div className="flex items-center gap-2">
-                        <span>{planDisplayNames[subscription.plan]}</span>
-                        {subscription.period && <span>（{periodDisplayNames[subscription.period]}）</span>}
+                        <span>{planDisplayNames[subscription.planType]}</span>
+                        {subscription.billingPeriod && (
+                          <span>（{periodDisplayNames[subscription.billingPeriod]}）</span>
+                        )}
                       </div>
                     </div>
                     
                     <div className="flex items-center justify-between">
                       <p className="font-medium">ステータス</p>
-                      <Badge variant={statusDisplayInfo[subscription.status].color as "default" | "secondary" | "destructive" | "outline"}>
+                      <Badge variant={statusDisplayInfo[subscription.status].color as "default" | "secondary" | "destructive" | "outline" | "success" | "warning"}>
                         {statusDisplayInfo[subscription.status].label}
                       </Badge>
                     </div>

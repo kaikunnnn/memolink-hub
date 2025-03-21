@@ -43,3 +43,6 @@ export interface PlanInfo {
     quarterly: number;
   };
 }
+
+// 拡張されたBadgeバリアント
+export type ExtendedBadgeVariant = "default" | "secondary" | "destructive" | "outline" | "success" | "warning";

@@ -8,67 +8,68 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useAuth } from '@/context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useSubscription } from '@/hooks/useSubscription';
+import { BillingPeriod, PlanType } from '@/types/subscription';
+import { 
+  getPlanInfo, 
+  getMonthlyDisplayPrice, 
+  formatPrice 
+} from '@/utils/subscription';
 
 const PricingPage = () => {
-  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'quarterly'>('monthly');
-  const { user, isLoading } = useAuth();
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const { subscription, createSubscription, isLoading: isSubscriptionLoading } = useSubscription();
   const navigate = useNavigate();
 
-  // 3ヶ月プランの割引価格計算（15%割引）
-  const standardMonthlyPrice = 6400;
-  const standardQuarterlyPrice = Math.round(standardMonthlyPrice * 3 * 0.85);
+  // プラン情報の取得
+  const standardPlan = getPlanInfo('standard');
+  const feedbackPlan = getPlanInfo('feedback');
+
+  // 月額/3ヶ月表示用の価格計算
+  const standardMonthlyPrice = standardPlan.prices.monthly;
+  const standardQuarterlyPrice = standardPlan.prices.quarterly;
   const standardQuarterlyMonthly = Math.round(standardQuarterlyPrice / 3);
   
-  const feedbackMonthlyPrice = 32000;
-  const feedbackQuarterlyPrice = Math.round(feedbackMonthlyPrice * 3 * 0.85);
+  const feedbackMonthlyPrice = feedbackPlan.prices.monthly;
+  const feedbackQuarterlyPrice = feedbackPlan.prices.quarterly;
   const feedbackQuarterlyMonthly = Math.round(feedbackQuarterlyPrice / 3);
 
-  // 機能リスト
-  const standardFeatures = [
-    "全ての学習コンテンツへのアクセス",
-    "限定教材のダウンロード",
-    "動画コンテンツの視聴",
-    "練習問題と確認テスト",
-    "モバイル・デスクトップ対応",
-  ];
-
-  const feedbackFeatures = [
-    "全ての学習コンテンツへのアクセス",
-    "限定教材のダウンロード",
-    "動画コンテンツの視聴",
-    "練習問題と確認テスト",
-    "モバイル・デスクトップ対応",
-    "個別フィードバック",
-    "週1回の質問対応",
-    "添削サービス",
-    "プロジェクトレビュー",
-  ];
-
   // サブスクリプション処理
-  const handleSubscribe = async (planType: 'standard' | 'feedback', period: 'monthly' | 'quarterly') => {
+  const handleSubscribe = async (planType: PlanType, period: BillingPeriod) => {
     if (!user) {
       toast("サブスクリプションを開始するにはログインが必要です");
       navigate('/signin', { state: { returnUrl: '/pricing' } });
       return;
     }
 
-    // プラン情報を構築
-    let planId;
-    if (planType === 'standard') {
-      planId = period === 'monthly' ? 'standard_monthly' : 'standard_quarterly';
-    } else {
-      planId = period === 'monthly' ? 'feedback_monthly' : 'feedback_quarterly';
-    }
-
     try {
       toast("サブスクリプション処理を開始します...");
-      // 実際にはここでチェックアウトセッションを作成するためのAPIを呼び出すコードが入ります
-      // 現在はモックとして、直接アカウントページに遷移します
+      
+      await createSubscription({
+        planType: planType,
+        billingPeriod: period
+      });
+      
+      // 成功したらアカウントページに遷移
       navigate('/account');
     } catch (error) {
       console.error('サブスクリプション処理エラー:', error);
       toast.error("サブスクリプション処理中にエラーが発生しました。もう一度お試しください。");
     }
+  };
+
+  // すでにサブスクリプションがある場合のボタンテキスト
+  const getButtonText = (planType: PlanType) => {
+    if (!subscription) return "今すぐ登録";
+    
+    if (subscription.planType === planType) {
+      return subscription.status === 'canceled' 
+        ? "再開する" 
+        : "現在のプラン";
+    }
+    
+    return "プラン変更";
   };
 
   return (
@@ -91,7 +92,7 @@ const PricingPage = () => {
               type="single" 
               value={billingPeriod}
               onValueChange={(value) => {
-                if (value) setBillingPeriod(value as 'monthly' | 'quarterly');
+                if (value) setBillingPeriod(value as BillingPeriod);
               }}
               className="inline-flex bg-secondary rounded-lg p-1"
             >
@@ -110,23 +111,25 @@ const PricingPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
               <MembershipTier
                 title="スタンダードプラン（月額）"
-                price={`¥${standardMonthlyPrice.toLocaleString()}`}
+                price={formatPrice(standardMonthlyPrice)}
                 period="月"
                 description="基本的な学習コンテンツにアクセスできます"
-                features={standardFeatures}
-                buttonText="今すぐ登録"
+                features={standardPlan.features}
+                buttonText={getButtonText('standard')}
                 onClick={() => handleSubscribe('standard', 'monthly')}
+                buttonVariant={subscription?.planType === 'standard' && subscription?.status !== 'canceled' ? "outline" : "default"}
               />
               
               <MembershipTier
                 title="フィードバックプラン（月額）"
-                price={`¥${feedbackMonthlyPrice.toLocaleString()}`}
+                price={formatPrice(feedbackMonthlyPrice)}
                 period="月"
                 description="個別フィードバックとレビューが受けられます"
-                features={feedbackFeatures}
+                features={feedbackPlan.features}
                 isPopular={true}
-                buttonText="今すぐ登録"
+                buttonText={getButtonText('feedback')}
                 onClick={() => handleSubscribe('feedback', 'monthly')}
+                buttonVariant={subscription?.planType === 'feedback' && subscription?.status !== 'canceled' ? "outline" : "default"}
               />
             </div>
           ) : (
@@ -134,23 +137,25 @@ const PricingPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
               <MembershipTier
                 title="スタンダードプラン（3ヶ月）"
-                price={`¥${standardQuarterlyMonthly.toLocaleString()}`}
+                price={formatPrice(standardQuarterlyMonthly)}
                 period="月（一括払い）"
-                description={`3ヶ月一括払い ¥${standardQuarterlyPrice.toLocaleString()}（月々の場合と比べて¥${(standardMonthlyPrice * 3 - standardQuarterlyPrice).toLocaleString()}お得）`}
-                features={standardFeatures}
-                buttonText="今すぐ登録"
+                description={`3ヶ月一括払い ${formatPrice(standardQuarterlyPrice)}（月々の場合と比べて${formatPrice(standardMonthlyPrice * 3 - standardQuarterlyPrice)}お得）`}
+                features={standardPlan.features}
+                buttonText={getButtonText('standard')}
                 onClick={() => handleSubscribe('standard', 'quarterly')}
+                buttonVariant={subscription?.planType === 'standard' && subscription?.status !== 'canceled' ? "outline" : "default"}
               />
               
               <MembershipTier
                 title="フィードバックプラン（3ヶ月）"
-                price={`¥${feedbackQuarterlyMonthly.toLocaleString()}`}
+                price={formatPrice(feedbackQuarterlyMonthly)}
                 period="月（一括払い）"
-                description={`3ヶ月一括払い ¥${feedbackQuarterlyPrice.toLocaleString()}（月々の場合と比べて¥${(feedbackMonthlyPrice * 3 - feedbackQuarterlyPrice).toLocaleString()}お得）`}
-                features={feedbackFeatures}
+                description={`3ヶ月一括払い ${formatPrice(feedbackQuarterlyPrice)}（月々の場合と比べて${formatPrice(feedbackMonthlyPrice * 3 - feedbackQuarterlyPrice)}お得）`}
+                features={feedbackPlan.features}
                 isPopular={true}
-                buttonText="今すぐ登録"
+                buttonText={getButtonText('feedback')}
                 onClick={() => handleSubscribe('feedback', 'quarterly')}
+                buttonVariant={subscription?.planType === 'feedback' && subscription?.status !== 'canceled' ? "outline" : "default"}
               />
             </div>
           )}

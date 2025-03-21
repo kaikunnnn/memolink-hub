@@ -1,168 +1,77 @@
 
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { cn } from '@/lib/utils';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Menu, X, ChevronRight, User } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
+import { Menu, X } from 'lucide-react';
+import { useMobile } from '@/hooks/use-mobile';
+import NavbarLinks from '@/components/NavbarLinks';
 
-const Navbar = () => {
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { user, signOut } = useAuth();
-  
-  const isLoggedIn = !!user;
-  
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10);
-    };
-    
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-  
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [location.pathname]);
-  
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      navigate('/');
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
-  
-  const navItems = [
-    { name: 'ホーム', path: '/' },
-    { name: 'コース', path: '/courses' },
-    { name: '料金プラン', path: '/pricing' },
-    { name: '講師紹介', path: '/instructors' },
-  ];
-  
-  const isActive = (path: string) => {
-    if (path === '/' && location.pathname === '/') return true;
-    if (path !== '/' && location.pathname.startsWith(path)) return true;
-    return false;
-  };
-  
+export function Navbar() {
+  const [isOpen, setIsOpen] = useState(false);
+  const isMobile = useMobile();
+
   return (
-    <header 
-      className={cn(
-        'fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-out',
-        isScrolled ? 'bg-background/80 backdrop-blur-lg shadow-sm' : 'bg-transparent'
-      )}
-    >
-      <div className="container-wide flex items-center justify-between h-16 md:h-20">
-        <div className="flex items-center">
-          <Link 
-            to="/" 
-            className="font-bold text-xl md:text-2xl tracking-tight mr-8"
-          >
-            MemoLearn
-          </Link>
-          
-          <nav className="hidden md:flex items-center space-x-1">
-            {navItems.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  'px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200',
-                  isActive(item.path)
-                    ? 'text-primary'
-                    : 'text-foreground/70 hover:text-foreground hover:bg-secondary'
-                )}
-              >
-                {item.name}
-              </Link>
-            ))}
-          </nav>
-        </div>
-        
-        <div className="hidden md:flex items-center space-x-4">
-          {isLoggedIn ? (
-            <Button variant="ghost" size="sm" onClick={() => navigate('/account')}>
-              <User className="mr-2 h-4 w-4" />
-              マイアカウント
-            </Button>
-          ) : (
-            <>
-              <Button variant="outline" size="sm" asChild>
-                <Link to="/login">ログイン</Link>
-              </Button>
-              <Button size="sm" asChild>
-                <Link to="/signup">無料で始める <ChevronRight className="ml-1 h-4 w-4" /></Link>
-              </Button>
-            </>
-          )}
-        </div>
-        
-        <button 
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden p-2 -mr-2 rounded-md text-foreground/70 hover:text-foreground hover:bg-secondary"
-        >
-          {mobileMenuOpen ? (
-            <X className="h-6 w-6" />
-          ) : (
-            <Menu className="h-6 w-6" />
-          )}
-        </button>
-      </div>
-      
-      {/* Mobile menu */}
-      <div 
-        className={cn(
-          'md:hidden overflow-hidden transition-all duration-300 ease-in-out',
-          mobileMenuOpen 
-            ? 'max-h-screen bg-background border-b' 
-            : 'max-h-0'
-        )}
-      >
-        <div className="container-wide py-4 space-y-2">
-          {navItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={cn(
-                'block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200',
-                isActive(item.path)
-                  ? 'text-primary bg-primary/5'
-                  : 'text-foreground/70 hover:text-foreground hover:bg-secondary'
-              )}
-            >
-              {item.name}
+    <header className="sticky top-0 z-40 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-14 max-w-screen-2xl items-center">
+        <div className="flex flex-1 items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Link to="/" className="font-bold text-xl">
+              学習プラットフォーム
             </Link>
-          ))}
-          <div className="pt-4 space-y-2">
-            {isLoggedIn ? (
-              <>
-                <Button className="w-full" asChild>
-                  <Link to="/account">マイアカウント</Link>
-                </Button>
-                <Button variant="outline" className="w-full" onClick={handleSignOut}>
-                  ログアウト
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button variant="outline" className="w-full" asChild>
-                  <Link to="/login">ログイン</Link>
-                </Button>
-                <Button className="w-full" asChild>
-                  <Link to="/signup">無料で始める</Link>
-                </Button>
-              </>
-            )}
+          </div>
+
+          <div className="hidden md:flex md:items-center md:space-x-1">
+            <NavbarLinks />
+          </div>
+
+          <Button
+            variant="ghost"
+            className="md:hidden"
+            size="icon"
+            onClick={() => setIsOpen(!isOpen)}
+          >
+            {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            <span className="sr-only">Toggle Menu</span>
+          </Button>
+        </div>
+      </div>
+
+      {isOpen && isMobile && (
+        <div className="container border-t py-4 md:hidden">
+          <div className="flex flex-col space-y-3">
+            <Link 
+              to="/courses" 
+              className="flex items-center py-2"
+              onClick={() => setIsOpen(false)}
+            >
+              コース
+            </Link>
+            <Link 
+              to="/premium" 
+              className="flex items-center py-2"
+              onClick={() => setIsOpen(false)}
+            >
+              プレミアム
+            </Link>
+            <Link 
+              to="/pricing" 
+              className="flex items-center py-2"
+              onClick={() => setIsOpen(false)}
+            >
+              料金プラン
+            </Link>
+            <Link 
+              to="/account" 
+              className="flex items-center py-2"
+              onClick={() => setIsOpen(false)}
+            >
+              アカウント
+            </Link>
           </div>
         </div>
-      </div>
+      )}
     </header>
   );
-};
+}
 
 export default Navbar;

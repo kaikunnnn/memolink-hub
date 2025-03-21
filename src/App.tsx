@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import PlanProtectedRoute from "@/components/PlanProtectedRoute";
 import Index from "./pages/Index";
 import Courses from "./pages/Courses";
 import VideoPlayer from "./pages/VideoPlayer";
@@ -14,6 +15,7 @@ import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import Login from "./pages/Login";
 import Account from "./pages/Account";
+import PremiumContent from "./pages/PremiumContent";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +38,25 @@ const App = () => (
             <Route path="/account" element={
               <ProtectedRoute>
                 <Account />
+              </ProtectedRoute>
+            } />
+            <Route path="/premium" element={
+              <ProtectedRoute>
+                <PremiumContent />
+              </ProtectedRoute>
+            } />
+            <Route path="/premium/standard" element={
+              <ProtectedRoute>
+                <PlanProtectedRoute requiredPlan="standard">
+                  <PremiumContent />
+                </PlanProtectedRoute>
+              </ProtectedRoute>
+            } />
+            <Route path="/premium/feedback" element={
+              <ProtectedRoute>
+                <PlanProtectedRoute requiredPlan="feedback">
+                  <PremiumContent />
+                </PlanProtectedRoute>
               </ProtectedRoute>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

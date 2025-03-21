@@ -15,6 +15,7 @@ import {
   periodDisplayNames, 
   statusDisplayInfo 
 } from '@/utils/subscription';
+import { ExtendedBadgeVariant } from '@/types/subscription';
 
 const Account = () => {
   const { user, isConfigured } = useAuth();
@@ -109,7 +110,7 @@ const Account = () => {
                     
                     <div className="flex items-center justify-between">
                       <p className="font-medium">ステータス</p>
-                      <Badge variant={statusDisplayInfo[subscription.status].color as "default" | "secondary" | "destructive" | "outline" | "success" | "warning"}>
+                      <Badge variant={statusDisplayInfo[subscription.status].color as ExtendedBadgeVariant}>
                         {statusDisplayInfo[subscription.status].label}
                       </Badge>
                     </div>

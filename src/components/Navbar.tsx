@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -38,34 +39,7 @@ export function Navbar() {
       {isOpen && isMobile && (
         <div className="container border-t py-4 md:hidden">
           <div className="flex flex-col space-y-3">
-            <Link 
-              to="/courses" 
-              className="flex items-center py-2"
-              onClick={() => setIsOpen(false)}
-            >
-              コース
-            </Link>
-            <Link 
-              to="/premium" 
-              className="flex items-center py-2"
-              onClick={() => setIsOpen(false)}
-            >
-              プレミアム
-            </Link>
-            <Link 
-              to="/pricing" 
-              className="flex items-center py-2"
-              onClick={() => setIsOpen(false)}
-            >
-              料金プラン
-            </Link>
-            <Link 
-              to="/account" 
-              className="flex items-center py-2"
-              onClick={() => setIsOpen(false)}
-            >
-              アカウント
-            </Link>
+            <NavbarLinks onMobileMenuClick={() => setIsOpen(false)} />
           </div>
         </div>
       )}

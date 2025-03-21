@@ -1,8 +1,9 @@
 
 import React from 'react';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Link } from 'react-router-dom';
 
 interface MembershipTierProps {
   title: string;
@@ -13,6 +14,10 @@ interface MembershipTierProps {
   isPopular?: boolean;
   className?: string;
   style?: React.CSSProperties;
+  buttonText?: string;
+  buttonVariant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
+  onClick?: () => void;
+  buttonAsLink?: string;
 }
 
 const MembershipTier: React.FC<MembershipTierProps> = ({
@@ -24,6 +29,10 @@ const MembershipTier: React.FC<MembershipTierProps> = ({
   isPopular = false,
   className,
   style,
+  buttonText = "今すぐ登録",
+  buttonVariant = "default",
+  onClick,
+  buttonAsLink,
 }) => {
   return (
     <div 
@@ -53,14 +62,29 @@ const MembershipTier: React.FC<MembershipTierProps> = ({
           </div>
         </div>
         
-        <Button 
-          className={cn(
-            "w-full mb-6",
-            !isPopular && "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-          )}
-        >
-          今すぐ登録
-        </Button>
+        {buttonAsLink ? (
+          <Link 
+            to={buttonAsLink}
+            className={cn(
+              buttonVariants({ variant: buttonVariant }),
+              "w-full mb-6",
+              !isPopular && buttonVariant === "default" && "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+            )}
+          >
+            {buttonText}
+          </Link>
+        ) : (
+          <Button 
+            className={cn(
+              "w-full mb-6",
+              !isPopular && buttonVariant === "default" && "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+            )}
+            variant={buttonVariant}
+            onClick={onClick}
+          >
+            {buttonText}
+          </Button>
+        )}
         
         <div className="space-y-3">
           {features.map((feature, index) => (

@@ -26,7 +26,7 @@ const Account = () => {
     subscription, 
     isLoading: isSubscriptionLoading, 
     cancelSubscription,
-    manageSubscription
+    redirectToCustomerPortal
   } = useSubscription();
 
   // サブスクリプションキャンセルの処理
@@ -43,7 +43,7 @@ const Account = () => {
   const handleManageSubscription = async () => {
     try {
       toast("Stripeカスタマーポータルへ遷移中...");
-      await manageSubscription();
+      await redirectToCustomerPortal();
     } catch (error) {
       console.error('カスタマーポータル遷移エラー:', error);
     }

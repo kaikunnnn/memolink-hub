@@ -72,6 +72,23 @@ const PricingPage = () => {
     return "プラン変更";
   };
 
+  // プラン選択処理のヘルパー関数
+  const handlePlanSelection = (planType: PlanType) => {
+    if (!user) {
+      toast("サブスクリプションを開始するにはログインが必要です");
+      navigate('/signin', { state: { returnUrl: '/pricing' } });
+      return;
+    }
+
+    // 現在と同じプランを選択した場合は処理しない
+    if (subscription?.planType === planType && subscription?.status !== 'canceled') {
+      toast.info("すでに選択中のプランです");
+      return;
+    }
+
+    handleSubscribe(planType, billingPeriod);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />

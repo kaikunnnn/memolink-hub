@@ -16,6 +16,7 @@ import {
   statusDisplayInfo 
 } from '@/utils/subscription';
 import { ExtendedBadgeVariant } from '@/types/subscription';
+import { CreditCard } from 'lucide-react';
 
 const Account = () => {
   const { user, isConfigured } = useAuth();
@@ -24,7 +25,8 @@ const Account = () => {
   const { 
     subscription, 
     isLoading: isSubscriptionLoading, 
-    cancelSubscription 
+    cancelSubscription,
+    manageSubscription
   } = useSubscription();
 
   // サブスクリプションキャンセルの処理
@@ -34,6 +36,16 @@ const Account = () => {
       await cancelSubscription();
     } catch (error) {
       console.error('キャンセル処理エラー:', error);
+    }
+  };
+
+  // Stripeカスタマーポータルへの遷移
+  const handleManageSubscription = async () => {
+    try {
+      toast("Stripeカスタマーポータルへ遷移中...");
+      await manageSubscription();
+    } catch (error) {
+      console.error('カスタマーポータル遷移エラー:', error);
     }
   };
 
@@ -127,6 +139,17 @@ const Account = () => {
                           : 'サブスクリプションはいつでも変更またはキャンセルできます。'}
                       </p>
                       <div className="flex flex-col sm:flex-row gap-2">
+                        {subscription.status !== 'canceled' && (
+                          <Button 
+                            onClick={handleManageSubscription} 
+                            variant="outline" 
+                            className="flex-1"
+                          >
+                            <CreditCard className="w-4 h-4 mr-2" />
+                            支払い情報管理
+                          </Button>
+                        )}
+                        
                         <Button 
                           onClick={handleChangePlan} 
                           variant="outline" 
@@ -134,6 +157,7 @@ const Account = () => {
                         >
                           プラン変更
                         </Button>
+                        
                         {subscription.status !== 'canceled' && (
                           <Button 
                             onClick={handleCancelSubscription} 

@@ -8,6 +8,7 @@ import {
   BillingPeriod, 
   CreateSubscriptionData 
 } from '@/types/subscription';
+import { createCheckoutSession, createCustomerPortalSession, getStripe } from '@/utils/stripe';
 
 interface UseSubscriptionReturn {
   subscription: Subscription | null;
@@ -15,6 +16,7 @@ interface UseSubscriptionReturn {
   error: Error | null;
   createSubscription: (data: CreateSubscriptionData) => Promise<void>;
   cancelSubscription: () => Promise<void>;
+  manageSubscription: () => Promise<void>;
 }
 
 export function useSubscription(): UseSubscriptionReturn {
@@ -72,10 +74,24 @@ export function useSubscription(): UseSubscriptionReturn {
     setError(null);
 
     try {
-      // 実際の実装ではStripeのチェックアウトセッション作成やSupabaseへの保存処理
-      // 現在はモックデータを作成して保存
-      
-      // 本来はStripeから返ってくる情報を元に作成される
+      // Stripeチェックアウトセッションを作成
+      const sessionId = await createCheckoutSession(
+        data.planType,
+        data.billingPeriod,
+        user.id
+      );
+
+      // Stripeオブジェクトを取得
+      const stripe = await getStripe();
+      if (!stripe) {
+        throw new Error('Stripeの読み込みに失敗しました');
+      }
+
+      // 実際の実装では、Stripeチェックアウトにリダイレクト
+      // const { error } = await stripe.redirectToCheckout({ sessionId });
+      // if (error) throw error;
+
+      // モック実装では、直接サブスクリプションを作成
       const mockSubscription: Subscription = {
         id: `sub_${Date.now()}`,
         userId: user.id,
@@ -144,11 +160,40 @@ export function useSubscription(): UseSubscriptionReturn {
     }
   };
 
+  // Stripeカスタマーポータルでサブスクリプションを管理
+  const manageSubscription = async () => {
+    if (!user || !subscription) {
+      throw new Error('管理するサブスクリプションがありません');
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Stripeカスタマーポータルのセッションを作成
+      const portalUrl = await createCustomerPortalSession(user.id);
+      
+      // 実際の実装ではポータルURLにリダイレクト
+      // window.location.href = portalUrl;
+      
+      toast.success('Stripeカスタマーポータルへリダイレクトします（モック）');
+    } catch (err) {
+      console.error('サブスクリプション管理エラー:', err);
+      const errorObj = err instanceof Error ? err : new Error('サブスクリプション管理画面への遷移に失敗しました');
+      setError(errorObj);
+      toast.error('処理中にエラーが発生しました');
+      throw errorObj;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return {
     subscription,
     isLoading,
     error,
     createSubscription,
-    cancelSubscription
+    cancelSubscription,
+    manageSubscription
   };
 }

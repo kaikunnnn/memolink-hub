@@ -5,9 +5,14 @@ import { Button } from '@/components/ui/button';
 import MembershipTier from '@/components/MembershipTier';
 import { Check } from 'lucide-react';
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useAuth } from '@/context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 const PricingPage = () => {
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'quarterly'>('monthly');
+  const { user, isLoading } = useAuth();
+  const navigate = useNavigate();
 
   // 3ヶ月プランの割引価格計算（15%割引）
   const standardMonthlyPrice = 6400;
@@ -38,6 +43,33 @@ const PricingPage = () => {
     "添削サービス",
     "プロジェクトレビュー",
   ];
+
+  // サブスクリプション処理
+  const handleSubscribe = async (planType: 'standard' | 'feedback', period: 'monthly' | 'quarterly') => {
+    if (!user) {
+      toast("サブスクリプションを開始するにはログインが必要です");
+      navigate('/signin', { state: { returnUrl: '/pricing' } });
+      return;
+    }
+
+    // プラン情報を構築
+    let planId;
+    if (planType === 'standard') {
+      planId = period === 'monthly' ? 'standard_monthly' : 'standard_quarterly';
+    } else {
+      planId = period === 'monthly' ? 'feedback_monthly' : 'feedback_quarterly';
+    }
+
+    try {
+      toast("サブスクリプション処理を開始します...");
+      // 実際にはここでチェックアウトセッションを作成するためのAPIを呼び出すコードが入ります
+      // 現在はモックとして、直接アカウントページに遷移します
+      navigate('/account');
+    } catch (error) {
+      console.error('サブスクリプション処理エラー:', error);
+      toast.error("サブスクリプション処理中にエラーが発生しました。もう一度お試しください。");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -82,6 +114,8 @@ const PricingPage = () => {
                 period="月"
                 description="基本的な学習コンテンツにアクセスできます"
                 features={standardFeatures}
+                buttonText="今すぐ登録"
+                onClick={() => handleSubscribe('standard', 'monthly')}
               />
               
               <MembershipTier
@@ -91,6 +125,8 @@ const PricingPage = () => {
                 description="個別フィードバックとレビューが受けられます"
                 features={feedbackFeatures}
                 isPopular={true}
+                buttonText="今すぐ登録"
+                onClick={() => handleSubscribe('feedback', 'monthly')}
               />
             </div>
           ) : (
@@ -102,6 +138,8 @@ const PricingPage = () => {
                 period="月（一括払い）"
                 description={`3ヶ月一括払い ¥${standardQuarterlyPrice.toLocaleString()}（月々の場合と比べて¥${(standardMonthlyPrice * 3 - standardQuarterlyPrice).toLocaleString()}お得）`}
                 features={standardFeatures}
+                buttonText="今すぐ登録"
+                onClick={() => handleSubscribe('standard', 'quarterly')}
               />
               
               <MembershipTier
@@ -111,6 +149,8 @@ const PricingPage = () => {
                 description={`3ヶ月一括払い ¥${feedbackQuarterlyPrice.toLocaleString()}（月々の場合と比べて¥${(feedbackMonthlyPrice * 3 - feedbackQuarterlyPrice).toLocaleString()}お得）`}
                 features={feedbackFeatures}
                 isPopular={true}
+                buttonText="今すぐ登録"
+                onClick={() => handleSubscribe('feedback', 'quarterly')}
               />
             </div>
           )}

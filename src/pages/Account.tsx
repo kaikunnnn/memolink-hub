@@ -124,7 +124,7 @@ const Account = () => {
                       <div className="flex items-center">
                         <h3 className="font-medium">現在のプラン:</h3>
                         <Badge className="ml-2">
-                          {planTypeMap[subscription.plan_type as keyof typeof planTypeMap] || subscription.plan_type}
+                          {planTypeMap[subscription.planType as keyof typeof planTypeMap] || subscription.planType}
                         </Badge>
                       </div>
                       <Badge variant={subscription.status === 'active' ? 'outline' : 'destructive'}>
@@ -132,13 +132,13 @@ const Account = () => {
                       </Badge>
                     </div>
                     
-                    {subscription.cancel_at_period_end && (
+                    {subscription.cancelAtPeriodEnd && (
                       <Alert className="bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-300 border-orange-200 dark:border-orange-800">
                         <AlertCircle className="h-4 w-4" />
                         <AlertDescription>
                           このサブスクリプションは現在の期間終了後にキャンセルされる予定です。
-                          {subscription.current_period_end && 
-                            ` ${new Date(subscription.current_period_end).toLocaleDateString('ja-JP')}まで利用可能です。`}
+                          {subscription.currentPeriodEnd && 
+                            ` ${new Date(subscription.currentPeriodEnd).toLocaleDateString('ja-JP')}まで利用可能です。`}
                         </AlertDescription>
                       </Alert>
                     )}
@@ -147,8 +147,8 @@ const Account = () => {
                     
                     <div>
                       <h3 className="font-medium text-sm mb-2">次回の請求日:</h3>
-                      <p>{subscription.current_period_end ? 
-                        new Date(subscription.current_period_end).toLocaleDateString('ja-JP') : 
+                      <p>{subscription.currentPeriodEnd ? 
+                        new Date(subscription.currentPeriodEnd).toLocaleDateString('ja-JP') : 
                         '情報なし'}</p>
                     </div>
                   </div>

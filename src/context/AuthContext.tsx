@@ -9,6 +9,7 @@ interface AuthContextProps {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   isPending: boolean;
+  isLoading: boolean;
   isInitialized: boolean;
   isAuthenticated: boolean;
   isConfigured: boolean;
@@ -109,7 +110,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // パスワードリセット機能を追加
   const resetPassword = async (email: string) => {
     if (!supabase) {
       throw new Error('Supabase client not initialized');
@@ -124,13 +124,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // パスワード更新機能を追加
   const updatePassword = async (currentPassword: string, newPassword: string) => {
     if (!supabase || !session) {
       throw new Error('Not authenticated or Supabase client not initialized');
     }
     
-    // 現在のパスワードで認証確認
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: session.user.email!,
       password: currentPassword,
@@ -140,7 +138,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       throw signInError;
     }
     
-    // 新しいパスワードに更新
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
     });
@@ -150,13 +147,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // メールアドレス更新機能を追加
   const updateEmail = async (newEmail: string, password: string) => {
     if (!supabase || !session) {
       throw new Error('Not authenticated or Supabase client not initialized');
     }
     
-    // 現在のパスワードで認証確認
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: session.user.email!,
       password: password,
@@ -166,7 +161,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       throw signInError;
     }
     
-    // 新しいメールアドレスに更新
     const { error } = await supabase.auth.updateUser({
       email: newEmail,
     });
@@ -183,12 +177,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signIn,
     signOut,
     isPending,
+    isLoading: isPending,
     isInitialized,
     isAuthenticated: !!user,
     isConfigured: !!supabase,
-    resetPassword,   // 追加
-    updatePassword,  // 追加
-    updateEmail,     // 追加
+    resetPassword,
+    updatePassword,
+    updateEmail,
   };
   
   return (

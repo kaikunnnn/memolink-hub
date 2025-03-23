@@ -17,7 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 const PlanDetails = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { subscription, isLoading, error, refetch } = useSubscription();
+  const { subscription, isLoading, error, fetchSubscription } = useSubscription();
   const [isProcessing, setIsProcessing] = useState(false);
 
   // プラン名の日本語表示用マッピング
@@ -40,7 +40,7 @@ const PlanDetails = () => {
     try {
       // Stripeカスタマーポータルセッションの作成
       const { data, error } = await supabase.functions.invoke('create-portal-session', {
-        body: { customer_id: subscription?.stripe_customer_id }
+        body: { customer_id: subscription?.stripeCustomerId }
       });
 
       if (error) throw error;
@@ -67,7 +67,7 @@ const PlanDetails = () => {
       // Stripeカスタマーポータルセッションの作成して解約ページへ
       const { data, error } = await supabase.functions.invoke('create-portal-session', {
         body: { 
-          customer_id: subscription.stripe_customer_id,
+          customer_id: subscription.stripeCustomerId,
           return_url: `${window.location.origin}/account`,
         }
       });
@@ -115,7 +115,7 @@ const PlanDetails = () => {
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>サブスクリプション情報の取得に失敗しました。再度お試しください。</AlertDescription>
           </Alert>
-        ) : !subscription || subscription.plan_type === 'free' ? (
+        ) : !subscription || subscription.planType === 'free' ? (
           <div className="space-y-6">
             <Alert className="mb-4">
               <Info className="h-4 w-4" />
@@ -133,32 +133,32 @@ const PlanDetails = () => {
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle>{planTypeMap[subscription.plan_type as keyof typeof planTypeMap] || subscription.plan_type}</CardTitle>
+                  <CardTitle>{planTypeMap[subscription.planType as keyof typeof planTypeMap] || subscription.planType}</CardTitle>
                   <Badge variant={subscription.status === 'active' ? 'default' : 'destructive'}>
                     {subscription.status === 'active' ? 'アクティブ' : '非アクティブ'}
                   </Badge>
                 </div>
                 <CardDescription>
-                  {billingPeriodMap[subscription.billing_period as keyof typeof billingPeriodMap] || subscription.billing_period}
+                  {billingPeriodMap[subscription.billingPeriod as keyof typeof billingPeriodMap] || subscription.billingPeriod}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center text-sm">
                   <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
                   <span>
-                    次回の請求日: {subscription.current_period_end ? 
-                      format(new Date(subscription.current_period_end), 'yyyy年MM月dd日', { locale: ja }) : 
+                    次回の請求日: {subscription.currentPeriodEnd ? 
+                      format(new Date(subscription.currentPeriodEnd), 'yyyy年MM月dd日', { locale: ja }) : 
                       '情報なし'}
                   </span>
                 </div>
                 
-                {subscription.cancel_at_period_end && (
-                  <Alert variant="warning">
+                {subscription.cancelAtPeriodEnd && (
+                  <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
                       このサブスクリプションは現在の期間終了後にキャンセルされる予定です。
-                      現在の期限が終了する{subscription.current_period_end ? 
-                      format(new Date(subscription.current_period_end), 'yyyy年MM月dd日', { locale: ja }) : 
+                      現在の期限が終了する{subscription.currentPeriodEnd ? 
+                      format(new Date(subscription.currentPeriodEnd), 'yyyy年MM月dd日', { locale: ja }) : 
                       '(日付不明)'}まで引き続きご利用いただけます。
                     </AlertDescription>
                   </Alert>
@@ -174,7 +174,7 @@ const PlanDetails = () => {
                   {isProcessing ? 'お待ちください...' : 'お支払い方法を管理'}
                 </Button>
                 
-                {subscription.status === 'active' && !subscription.cancel_at_period_end && (
+                {subscription.status === 'active' && !subscription.cancelAtPeriodEnd && (
                   <Button 
                     variant="outline" 
                     className="w-full sm:w-auto"

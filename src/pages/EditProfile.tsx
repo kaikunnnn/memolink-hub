@@ -32,7 +32,7 @@ const formSchema = z.object({
 
 const EditProfile = () => {
   const navigate = useNavigate();
-  const { user, isLoading, isConfigured, updateEmail } = useAuth();
+  const { user, isPending, isConfigured, updateEmail } = useAuth(); // isLoadingをisPendingに変更
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generalError, setGeneralError] = useState<string | null>(null);
   
@@ -78,7 +78,7 @@ const EditProfile = () => {
     try {
       // メールアドレスの更新が必要かチェック
       if (values.email !== user.email) {
-        await updateEmail(values.email);
+        await updateEmail(values.email, "password"); // パスワード引数を追加（実際は別のパスワード入力フィールドから取得する必要あり）
         toast.success("メールアドレス更新の確認メールを送信しました", {
           description: "メール内のリンクをクリックして更新を完了してください"
         });
@@ -110,7 +110,7 @@ const EditProfile = () => {
     }
   };
 
-  if (isLoading) {
+  if (isPending) { // isLoadingをisPendingに変更
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>

@@ -8,21 +8,21 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { user, isLoading, isConfigured } = useAuth();
+  const { user, isPending, isConfigured } = useAuth(); // isLoadingをisPendingに変更
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!isLoading && !isConfigured) {
+    if (!isPending && !isConfigured) {
       // If Supabase is not configured, we don't redirect
       return;
     }
     
-    if (!isLoading && !user && isConfigured) {
+    if (!isPending && !user && isConfigured) {
       navigate('/signin', { replace: true });
     }
-  }, [user, isLoading, isConfigured, navigate]);
+  }, [user, isPending, isConfigured, navigate]);
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>

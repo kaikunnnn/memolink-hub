@@ -53,7 +53,7 @@ serve(async (req) => {
       })
     }
 
-    console.log('Validating Stripe signature')
+    console.log('Validating Stripe signature:', signature.substring(0, 20) + '...')
 
     // Webhookイベントの検証
     let event
@@ -73,16 +73,35 @@ serve(async (req) => {
       case 'checkout.session.completed': {
         console.log('Processing checkout.session.completed event')
         const session = event.data.object
-        const userId = session.metadata.user_id
-        const planType = session.metadata.plan_type
-        const billingPeriod = session.metadata.billing_period
+        console.log('Session object:', JSON.stringify(session, null, 2))
+        
+        const userId = session.metadata?.user_id
+        const planType = session.metadata?.plan_type
+        const billingPeriod = session.metadata?.billing_period
         const subscriptionId = session.subscription
+        
+        if (!userId || !planType || !billingPeriod || !subscriptionId) {
+          console.error('Missing required metadata in session', { 
+            userId, planType, billingPeriod, subscriptionId 
+          })
+          return new Response(JSON.stringify({ error: 'Missing required metadata' }), {
+            status: 400,
+            headers: corsHeaders
+          })
+        }
 
         console.log(`Checkout completed for user: ${userId}, plan: ${planType}, period: ${billingPeriod}`)
 
         // サブスクリプション詳細を取得
         console.log(`Retrieving subscription details for: ${subscriptionId}`)
         const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+        console.log('Subscription details:', JSON.stringify({
+          id: subscription.id,
+          status: subscription.status,
+          customer: subscription.customer,
+          current_period_start: subscription.current_period_start,
+          current_period_end: subscription.current_period_end
+        }, null, 2))
         
         const now = new Date()
         const currentPeriodStart = new Date(subscription.current_period_start * 1000)
@@ -90,59 +109,113 @@ serve(async (req) => {
 
         // 既存のサブスクリプションを確認
         console.log(`Checking for existing subscriptions for user: ${userId}`)
-        const { data: existingSubscription, error: subscriptionError } = await supabase
+        const { data: existingSubscriptions, error: subscriptionError } = await supabase
           .from('subscriptions')
-          .select('id, status')
+          .select('id, status, stripe_subscription_id')
           .eq('user_id', userId)
           .eq('status', 'active')
-          .maybeSingle()
 
         if (subscriptionError) {
           console.error('Error checking existing subscription:', subscriptionError)
-        }
-
-        if (existingSubscription) {
-          console.log(`Found existing subscription: ${existingSubscription.id}, marking as canceled`)
-          // 既存のサブスクリプションをキャンセル済みにマーク
-          const { error: updateError } = await supabase
-            .from('subscriptions')
-            .update({
-              status: 'canceled',
-              cancel_at_period_end: true,
-              updated_at: now.toISOString()
-            })
-            .eq('id', existingSubscription.id)
-
-          if (updateError) {
-            console.error('Error updating existing subscription:', updateError)
-          }
-        }
-
-        // 新しいサブスクリプションを登録
-        console.log('Inserting new subscription record')
-        const { data: insertData, error: insertError } = await supabase
-          .from('subscriptions')
-          .insert({
-            user_id: userId,
-            plan_type: planType,
-            billing_period: billingPeriod,
-            status: subscription.status,
-            current_period_start: currentPeriodStart.toISOString(),
-            current_period_end: currentPeriodEnd.toISOString(),
-            cancel_at_period_end: subscription.cancel_at_period_end,
-            stripe_subscription_id: subscriptionId,
-            stripe_customer_id: subscription.customer
-          })
-
-        if (insertError) {
-          console.error('Error inserting subscription record:', insertError)
-          return new Response(JSON.stringify({ error: insertError.message }), {
+          return new Response(JSON.stringify({ error: subscriptionError.message }), {
             status: 500,
             headers: corsHeaders
           })
         }
 
-        console.log('Subscription record inserted successfully')
+        console.log(`Found ${existingSubscriptions?.length || 0} existing active subscriptions`)
+
+        // 既存のアクティブなサブスクリプションがあれば更新
+        if (existingSubscriptions && existingSubscriptions.length > 0) {
+          for (const existingSub of existingSubscriptions) {
+            // 同じStripeサブスクリプションIDの場合はスキップ（重複処理防止）
+            if (existingSub.stripe_subscription_id === subscriptionId) {
+              console.log(`Subscription ${subscriptionId} already exists, skipping update`)
+              continue
+            }
+            
+            console.log(`Marking existing subscription ${existingSub.id} as canceled`)
+            // 既存のサブスクリプションをキャンセル済みにマーク
+            const { error: updateError } = await supabase
+              .from('subscriptions')
+              .update({
+                status: 'canceled',
+                cancel_at_period_end: true,
+                updated_at: now.toISOString()
+              })
+              .eq('id', existingSub.id)
+
+            if (updateError) {
+              console.error(`Error updating existing subscription ${existingSub.id}:`, updateError)
+            } else {
+              console.log(`Successfully marked subscription ${existingSub.id} as canceled`)
+            }
+          }
+        }
+
+        // 同じstripe_subscription_idのレコードが既に存在するか確認（冪等性の確保）
+        const { data: existingSubWithSameId } = await supabase
+          .from('subscriptions')
+          .select('id')
+          .eq('stripe_subscription_id', subscriptionId)
+          .maybeSingle()
+
+        if (existingSubWithSameId) {
+          console.log(`Subscription with stripe_subscription_id ${subscriptionId} already exists, updating instead of inserting`)
+          
+          // 既存レコードを更新
+          const { error: updateError } = await supabase
+            .from('subscriptions')
+            .update({
+              plan_type: planType,
+              billing_period: billingPeriod,
+              status: subscription.status,
+              current_period_start: currentPeriodStart.toISOString(),
+              current_period_end: currentPeriodEnd.toISOString(),
+              cancel_at_period_end: subscription.cancel_at_period_end,
+              updated_at: now.toISOString(),
+              stripe_customer_id: subscription.customer
+            })
+            .eq('id', existingSubWithSameId.id)
+
+          if (updateError) {
+            console.error('Error updating existing subscription record:', updateError)
+            return new Response(JSON.stringify({ error: updateError.message }), {
+              status: 500,
+              headers: corsHeaders
+            })
+          }
+          
+          console.log(`Successfully updated subscription record ${existingSubWithSameId.id}`)
+        } else {
+          // 新しいサブスクリプションを登録
+          console.log('Inserting new subscription record')
+          const { data: insertData, error: insertError } = await supabase
+            .from('subscriptions')
+            .insert({
+              user_id: userId,
+              plan_type: planType,
+              billing_period: billingPeriod,
+              status: subscription.status,
+              current_period_start: currentPeriodStart.toISOString(),
+              current_period_end: currentPeriodEnd.toISOString(),
+              cancel_at_period_end: subscription.cancel_at_period_end,
+              stripe_subscription_id: subscriptionId,
+              stripe_customer_id: subscription.customer
+            })
+            .select()
+
+          if (insertError) {
+            console.error('Error inserting subscription record:', insertError)
+            return new Response(JSON.stringify({ error: insertError.message }), {
+              status: 500,
+              headers: corsHeaders
+            })
+          }
+
+          console.log('Subscription record inserted successfully:', insertData)
+        }
+        
         break
       }
       
@@ -166,6 +239,10 @@ serve(async (req) => {
         
         if (updateError) {
           console.error('Error updating subscription:', updateError)
+          return new Response(JSON.stringify({ error: updateError.message }), {
+            status: 500,
+            headers: corsHeaders
+          })
         } else {
           console.log('Subscription updated successfully')
         }
@@ -191,6 +268,10 @@ serve(async (req) => {
         
         if (updateError) {
           console.error('Error marking subscription as canceled:', updateError)
+          return new Response(JSON.stringify({ error: updateError.message }), {
+            status: 500,
+            headers: corsHeaders
+          })
         } else {
           console.log('Subscription marked as canceled successfully')
         }

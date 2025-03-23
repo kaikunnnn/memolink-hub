@@ -88,16 +88,9 @@ serve(async (req) => {
 
     console.log(`Using price ID: ${priceId}`)
 
-    // まずStripeで顧客検索を試みる
-    console.log(`Searching for existing Stripe customer with email: ${user.email}`)
-    const customers = await stripe.customers.list({
-      email: user.email,
-      limit: 1
-    })
-
+    // 顧客IDを取得する流れを改善
+    // 1. まずDBから既存の顧客IDを検索
     let customerId
-
-    // 既存の顧客情報をデータベースから取得
     console.log(`Checking customer_info table for user: ${user.id}`)
     const { data: customerData, error: customerError } = await supabaseAdmin
       .from('customer_info')
@@ -109,53 +102,75 @@ serve(async (req) => {
       console.error('Error querying customer_info:', customerError)
     }
 
-    // 優先順位: 1. DB内の顧客ID、2. Stripeから検索した顧客、3. 新規作成
     if (customerData?.stripe_customer_id) {
-      // データベースに顧客IDが存在する場合
+      // 1. DBに顧客IDが存在する場合、それを使用
       customerId = customerData.stripe_customer_id
       console.log(`Found customer ID in database: ${customerId}`)
-    } else if (customers.data.length > 0) {
-      // Stripeに同じメールアドレスの顧客が存在する場合
-      customerId = customers.data[0].id
-      console.log(`Found existing Stripe customer: ${customerId}`)
-
-      // データベースに顧客情報を保存/更新
-      const { error: upsertError } = await supabaseAdmin
-        .from('customer_info')
-        .upsert({
-          id: user.id,
-          stripe_customer_id: customerId
-        })
-
-      if (upsertError) {
-        console.error('Error upserting customer info:', upsertError)
-      } else {
-        console.log('Updated customer info in database')
-      }
-    } else {
-      // 新規顧客をStripeに作成
-      console.log('Creating new Stripe customer')
-      const customer = await stripe.customers.create({
-        email: user.email,
-        metadata: {
-          user_id: user.id
+      
+      // 1.1 Stripeで顧客が実際に存在するか確認（削除された可能性があるため）
+      try {
+        const customer = await stripe.customers.retrieve(customerId)
+        if (customer.deleted) {
+          console.log(`Customer ${customerId} was deleted, will create new one`)
+          customerId = null // 削除されていたら新しく作り直す
         }
+      } catch (retrieveError) {
+        console.error(`Error retrieving customer ${customerId}:`, retrieveError)
+        customerId = null // エラーが発生したら新しく作り直す
+      }
+    }
+
+    // 2. DBに顧客IDがない場合はStripeでメールアドレスで検索
+    if (!customerId) {
+      console.log(`Searching for existing Stripe customer with email: ${user.email}`)
+      const customers = await stripe.customers.list({
+        email: user.email,
+        limit: 1
       })
-      customerId = customer.id
-      console.log(`Created new customer: ${customerId}`)
 
-      // データベースに顧客情報を保存
-      const { error: insertError } = await supabaseAdmin
-        .from('customer_info')
-        .insert({
-          id: user.id,
-          stripe_customer_id: customerId
-        })
+      if (customers.data.length > 0) {
+        // 2.1 Stripeに同じメールアドレスの顧客が存在する場合
+        customerId = customers.data[0].id
+        console.log(`Found existing Stripe customer: ${customerId}`)
 
-      if (insertError) {
-        console.error('Error inserting customer info:', insertError)
+        // 2.2 データベースに顧客情報を保存/更新
+        const { error: upsertError } = await supabaseAdmin
+          .from('customer_info')
+          .upsert({
+            id: user.id,
+            stripe_customer_id: customerId
+          })
+
+        if (upsertError) {
+          console.error('Error upserting customer info:', upsertError)
+        } else {
+          console.log('Updated customer info in database')
+        }
       } else {
-        console.log('Inserted customer info in database')
+        // 3. 新規顧客をStripeに作成
+        console.log('Creating new Stripe customer')
+        const customer = await stripe.customers.create({
+          email: user.email,
+          metadata: {
+            user_id: user.id
+          }
+        })
+        customerId = customer.id
+        console.log(`Created new customer: ${customerId}`)
+
+        // 3.1 データベースに顧客情報を保存
+        const { error: insertError } = await supabaseAdmin
+          .from('customer_info')
+          .insert({
+            id: user.id,
+            stripe_customer_id: customerId
+          })
+
+        if (insertError) {
+          console.error('Error inserting customer info:', insertError)
+        } else {
+          console.log('Inserted customer info in database')
+        }
       }
     }
 

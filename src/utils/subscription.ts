@@ -38,8 +38,8 @@ const PLAN_DATA: Record<PlanType, PlanInfo> = {
     },
     stripeIds: {
       // ここにStripeの実際の価格IDを設定してください
-      monthly: 'price_1234567890_standard_monthly', // 実際のIDに変更
-      quarterly: 'price_1234567890_standard_quarterly' // 実際のIDに変更
+      monthly: 'price_1OIiOUKUVUnt8GtyOfXEoEvW', // 実際のデモIDに変更
+      quarterly: 'price_1OIiPpKUVUnt8Gty0OH3Pyip' // 実際のデモIDに変更
     }
   },
   feedback: {
@@ -63,8 +63,8 @@ const PLAN_DATA: Record<PlanType, PlanInfo> = {
     },
     stripeIds: {
       // ここにStripeの実際の価格IDを設定してください
-      monthly: 'price_1234567890_feedback_monthly', // 実際のIDに変更
-      quarterly: 'price_1234567890_feedback_quarterly' // 実際のIDに変更
+      monthly: 'price_1OIiMRKUVUnt8GtyMGSJIH8H', // 実際のデモIDに変更
+      quarterly: 'price_1OIiMRKUVUnt8GtyttXJ71Hz' // 実際のデモIDに変更
     }
   }
 };

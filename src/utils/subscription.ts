@@ -84,3 +84,43 @@ export const getPlanPrices = (): Record<PlanType, { monthly: number; quarterly: 
 export const getQuarterlyDiscount = (): number => {
   return 15; // 15%割引
 };
+
+/**
+ * プランの特徴を取得する
+ */
+export const getPlanFeatures = (): Record<PlanType, string[]> => {
+  // 標準プランの特徴
+  const standardFeatures = [
+    '全ての学習コンテンツへのアクセス',
+    'オンデマンド動画レッスン',
+    'プログレストラッキング',
+    '練習問題と小テスト',
+    'コミュニティフォーラムへのアクセス'
+  ];
+
+  // フィードバックプランの特徴（標準プラン + α）
+  const feedbackFeatures = [
+    ...standardFeatures,
+    '個別フィードバック（月3回まで）',
+    '課題の添削',
+    '質問への優先回答',
+    '月1回のグループQ&Aセッション'
+  ];
+
+  return {
+    free: ['無料コンテンツへのアクセス', 'サンプルレッスン', 'コミュニティフォーラムの閲覧'],
+    standard: standardFeatures,
+    feedback: feedbackFeatures
+  };
+};
+
+/**
+ * プランの説明を取得する
+ */
+export const getPlanDescriptions = (): Record<PlanType, string> => {
+  return {
+    free: '基本的な機能を試せる無料プラン',
+    standard: '基本的な学習コンテンツにアクセスできるプラン',
+    feedback: '個別フィードバックを受けられるプレミアムプラン'
+  };
+};

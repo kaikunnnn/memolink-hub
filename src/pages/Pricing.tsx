@@ -12,6 +12,12 @@ import {
   TabsList, 
   TabsTrigger 
 } from '@/components/ui/tabs';
+import { 
+  getPlanPrices, 
+  getQuarterlyDiscount, 
+  getPlanFeatures, 
+  getPlanDescriptions 
+} from '@/utils/subscription';
 
 const Pricing = () => {
   const { user } = useAuth();
@@ -19,18 +25,24 @@ const Pricing = () => {
   const navigate = useNavigate();
   const [selectedBillingPeriod, setSelectedBillingPeriod] = useState<BillingPeriod>('monthly');
 
+  // プラン価格とフィーチャーを取得
+  const planPrices = getPlanPrices();
+  const planFeatures = getPlanFeatures();
+  const planDescriptions = getPlanDescriptions();
+
   // 支払いサイクルに基づいて価格を計算
-  const getPriceDisplay = (basePrice: number): string => {
-    if (selectedBillingPeriod === 'quarterly') {
-      // 四半期プランは15%割引
-      const discountedPrice = basePrice * 3 * 0.85;
-      return `¥${Math.floor(discountedPrice).toLocaleString()}`;
-    }
+  const getPriceDisplay = (planType: PlanType): string => {
+    const basePrice = planPrices[planType][selectedBillingPeriod];
     return `¥${basePrice.toLocaleString()}`;
   };
 
   // 期間の表示テキスト
   const periodText = selectedBillingPeriod === 'monthly' ? '月額' : '3ヶ月';
+  
+  // 割引表示テキスト（3ヶ月プランの場合）
+  const discountText = selectedBillingPeriod === 'quarterly' 
+    ? `${getQuarterlyDiscount()}%お得` 
+    : '';
 
   // プランの選択処理
   const handleSelectPlan = async (planType: PlanType) => {
@@ -56,24 +68,6 @@ const Pricing = () => {
     toast.info('サブスクリプション管理はアカウントページから行えます');
   };
 
-  // 標準プランの特徴
-  const standardFeatures = [
-    '全ての学習コンテンツへのアクセス',
-    'オンデマンド動画レッスン',
-    'プログレストラッキング',
-    '練習問題と小テスト',
-    'コミュニティフォーラムへのアクセス'
-  ];
-
-  // フィードバックプランの特徴（標準プラン + α）
-  const feedbackFeatures = [
-    ...standardFeatures,
-    '個別フィードバック（月3回まで）',
-    '課題の添削',
-    '質問への優先回答',
-    '月1回のグループQ&Aセッション'
-  ];
-
   return (
     <div className="container max-w-6xl mx-auto px-4 py-16">
       <div className="text-center mb-12">
@@ -94,9 +88,11 @@ const Pricing = () => {
             <TabsTrigger value="monthly">月額プラン</TabsTrigger>
             <TabsTrigger value="quarterly">
               3ヶ月プラン 
-              <span className="ml-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">
-                15%お得
-              </span>
+              {discountText && (
+                <span className="ml-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">
+                  {discountText}
+                </span>
+              )}
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -106,10 +102,10 @@ const Pricing = () => {
         {/* スタンダードプラン */}
         <MembershipTier
           title="スタンダードプラン"
-          description="基本的な学習コンテンツにアクセスできるプラン"
-          price={getPriceDisplay(2980)}
+          description={planDescriptions.standard}
+          price={getPriceDisplay('standard')}
           period={periodText}
-          features={standardFeatures}
+          features={planFeatures.standard}
           buttonText={subscription ? 'アカウント管理' : 'スタンダードプランに登録'}
           onClick={subscription ? handleExistingSubscription : () => handleSelectPlan('standard')}
           buttonVariant={subscription ? 'outline' : 'default'}
@@ -118,10 +114,10 @@ const Pricing = () => {
         {/* フィードバックプラン */}
         <MembershipTier
           title="フィードバックプラン"
-          description="個別フィードバックを受けられるプレミアムプラン"
-          price={getPriceDisplay(4980)}
+          description={planDescriptions.feedback}
+          price={getPriceDisplay('feedback')}
           period={periodText}
-          features={feedbackFeatures}
+          features={planFeatures.feedback}
           isPopular={true}
           buttonText={subscription ? 'アカウント管理' : 'フィードバックプランに登録'}
           onClick={subscription ? handleExistingSubscription : () => handleSelectPlan('feedback')}

@@ -50,11 +50,12 @@ const EditProfile = () => {
       // プロフィール情報をSupabaseから取得
       const fetchProfile = async () => {
         try {
+          // profilesテーブルからデータを取得
           const { data, error } = await supabase
             .from('profiles')
             .select('name')
             .eq('id', user.id)
-            .maybeSingle(); // single()ではなくmaybeSingle()を使用
+            .maybeSingle();
             
           if (data && data.name) {
             form.setValue('name', data.name);

@@ -2,6 +2,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.8.0'
 import Stripe from 'https://esm.sh/stripe@11.1.0?target=deno'
+import { Buffer } from 'https://deno.land/std@0.168.0/node/buffer.ts'
 
 // 環境変数の取得
 const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
@@ -12,282 +13,338 @@ const stripeWebhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET') || ''
 // CORSヘッダー設定
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, stripe-signature',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Content-Type': 'application/json'
 }
 
-// Supabaseクライアントの初期化（サービスロールキーを使用）
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
+// Supabaseクライアントとサービスロールクライアントの初期化
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
-// Stripeクライアントの初期化
+// Stripeの初期化
 const stripe = new Stripe(stripeSecretKey, {
   apiVersion: '2022-11-15',
   httpClient: Stripe.createFetchHttpClient(),
 })
 
-console.log('Stripe webhook function loaded')
+console.log('Stripe webhook function loaded successfully')
 
 serve(async (req) => {
-  console.log('Webhook received:', req.method)
-  
   try {
-    // OPTIONSリクエスト（CORS preflight）の処理
+    // CORS対応
     if (req.method === 'OPTIONS') {
       console.log('Handling CORS preflight request')
       return new Response(null, {
         status: 204,
-        headers: corsHeaders
+        headers: corsHeaders,
       })
     }
 
-    // リクエストデータの取得
+    if (req.method !== 'POST') {
+      console.error(`Unsupported method: ${req.method}`)
+      return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+        status: 405,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // リクエストの検証
+    console.log('Verifying webhook signature')
     const body = await req.text()
-    const signature = req.headers.get('Stripe-Signature')
+    let signature = req.headers.get('stripe-signature')
 
     if (!signature) {
-      console.error('No Stripe signature in request headers')
-      return new Response(JSON.stringify({ error: 'No Stripe signature' }), {
+      console.error('No Stripe signature found in request headers')
+      return new Response(JSON.stringify({ error: 'No signature' }), {
         status: 400,
-        headers: corsHeaders
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    console.log('Validating Stripe signature:', signature.substring(0, 20) + '...')
-
-    // Webhookイベントの検証
+    // Stripeイベントの構築と検証
     let event
     try {
       event = stripe.webhooks.constructEvent(body, signature, stripeWebhookSecret)
-      console.log('Event validated successfully:', event.type)
+      console.log(`Webhook event verified: ${event.type}`)
     } catch (err) {
-      console.error('Webhook signature verification failed:', err.message)
-      return new Response(JSON.stringify({ error: `Webhook Error: ${err.message}` }), {
+      console.error(`Webhook signature verification failed: ${err.message}`)
+      return new Response(JSON.stringify({ error: `Webhook signature verification failed: ${err.message}` }), {
         status: 400,
-        headers: corsHeaders
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    // イベントタイプ別の処理
+    // イベントタイプに基づく処理
     switch (event.type) {
-      case 'checkout.session.completed': {
-        console.log('Processing checkout.session.completed event')
-        const session = event.data.object
-        console.log('Session object:', JSON.stringify(session, null, 2))
-        
-        const userId = session.metadata?.user_id
-        const planType = session.metadata?.plan_type
-        const billingPeriod = session.metadata?.billing_period
-        const subscriptionId = session.subscription
-        
-        if (!userId || !planType || !billingPeriod || !subscriptionId) {
-          console.error('Missing required metadata in session', { 
-            userId, planType, billingPeriod, subscriptionId 
-          })
-          return new Response(JSON.stringify({ error: 'Missing required metadata' }), {
-            status: 400,
-            headers: corsHeaders
-          })
-        }
-
-        console.log(`Checkout completed for user: ${userId}, plan: ${planType}, period: ${billingPeriod}`)
-
-        // サブスクリプション詳細を取得
-        console.log(`Retrieving subscription details for: ${subscriptionId}`)
-        const subscription = await stripe.subscriptions.retrieve(subscriptionId)
-        console.log('Subscription details:', JSON.stringify({
-          id: subscription.id,
-          status: subscription.status,
-          customer: subscription.customer,
-          current_period_start: subscription.current_period_start,
-          current_period_end: subscription.current_period_end
-        }, null, 2))
-        
-        const now = new Date()
-        const currentPeriodStart = new Date(subscription.current_period_start * 1000)
-        const currentPeriodEnd = new Date(subscription.current_period_end * 1000)
-
-        // 既存のサブスクリプションを確認
-        console.log(`Checking for existing subscriptions for user: ${userId}`)
-        const { data: existingSubscriptions, error: subscriptionError } = await supabase
-          .from('subscriptions')
-          .select('id, status, stripe_subscription_id')
-          .eq('user_id', userId)
-          .eq('status', 'active')
-
-        if (subscriptionError) {
-          console.error('Error checking existing subscription:', subscriptionError)
-          return new Response(JSON.stringify({ error: subscriptionError.message }), {
-            status: 500,
-            headers: corsHeaders
-          })
-        }
-
-        console.log(`Found ${existingSubscriptions?.length || 0} existing active subscriptions`)
-
-        // 既存のアクティブなサブスクリプションがあれば更新
-        if (existingSubscriptions && existingSubscriptions.length > 0) {
-          for (const existingSub of existingSubscriptions) {
-            // 同じStripeサブスクリプションIDの場合はスキップ（重複処理防止）
-            if (existingSub.stripe_subscription_id === subscriptionId) {
-              console.log(`Subscription ${subscriptionId} already exists, skipping update`)
-              continue
-            }
-            
-            console.log(`Marking existing subscription ${existingSub.id} as canceled`)
-            // 既存のサブスクリプションをキャンセル済みにマーク
-            const { error: updateError } = await supabase
-              .from('subscriptions')
-              .update({
-                status: 'canceled',
-                cancel_at_period_end: true,
-                updated_at: now.toISOString()
-              })
-              .eq('id', existingSub.id)
-
-            if (updateError) {
-              console.error(`Error updating existing subscription ${existingSub.id}:`, updateError)
-            } else {
-              console.log(`Successfully marked subscription ${existingSub.id} as canceled`)
-            }
-          }
-        }
-
-        // 同じstripe_subscription_idのレコードが既に存在するか確認（冪等性の確保）
-        const { data: existingSubWithSameId } = await supabase
-          .from('subscriptions')
-          .select('id')
-          .eq('stripe_subscription_id', subscriptionId)
-          .maybeSingle()
-
-        if (existingSubWithSameId) {
-          console.log(`Subscription with stripe_subscription_id ${subscriptionId} already exists, updating instead of inserting`)
-          
-          // 既存レコードを更新
-          const { error: updateError } = await supabase
-            .from('subscriptions')
-            .update({
-              plan_type: planType,
-              billing_period: billingPeriod,
-              status: subscription.status,
-              current_period_start: currentPeriodStart.toISOString(),
-              current_period_end: currentPeriodEnd.toISOString(),
-              cancel_at_period_end: subscription.cancel_at_period_end,
-              updated_at: now.toISOString(),
-              stripe_customer_id: subscription.customer
-            })
-            .eq('id', existingSubWithSameId.id)
-
-          if (updateError) {
-            console.error('Error updating existing subscription record:', updateError)
-            return new Response(JSON.stringify({ error: updateError.message }), {
-              status: 500,
-              headers: corsHeaders
-            })
-          }
-          
-          console.log(`Successfully updated subscription record ${existingSubWithSameId.id}`)
-        } else {
-          // 新しいサブスクリプションを登録
-          console.log('Inserting new subscription record')
-          const { data: insertData, error: insertError } = await supabase
-            .from('subscriptions')
-            .insert({
-              user_id: userId,
-              plan_type: planType,
-              billing_period: billingPeriod,
-              status: subscription.status,
-              current_period_start: currentPeriodStart.toISOString(),
-              current_period_end: currentPeriodEnd.toISOString(),
-              cancel_at_period_end: subscription.cancel_at_period_end,
-              stripe_subscription_id: subscriptionId,
-              stripe_customer_id: subscription.customer
-            })
-            .select()
-
-          if (insertError) {
-            console.error('Error inserting subscription record:', insertError)
-            return new Response(JSON.stringify({ error: insertError.message }), {
-              status: 500,
-              headers: corsHeaders
-            })
-          }
-
-          console.log('Subscription record inserted successfully:', insertData)
-        }
-        
+      case 'checkout.session.completed':
+        await handleCheckoutSessionCompleted(event.data.object)
         break
-      }
-      
-      case 'customer.subscription.updated': {
-        console.log('Processing customer.subscription.updated event')
-        const subscription = event.data.object
-        const stripeSubId = subscription.id
-
-        // サブスクリプション情報の更新
-        console.log(`Updating subscription: ${stripeSubId}`)
-        const { error: updateError } = await supabase
-          .from('subscriptions')
-          .update({
-            status: subscription.status,
-            current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-            current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-            cancel_at_period_end: subscription.cancel_at_period_end,
-            updated_at: new Date().toISOString()
-          })
-          .eq('stripe_subscription_id', stripeSubId)
-        
-        if (updateError) {
-          console.error('Error updating subscription:', updateError)
-          return new Response(JSON.stringify({ error: updateError.message }), {
-            status: 500,
-            headers: corsHeaders
-          })
-        } else {
-          console.log('Subscription updated successfully')
-        }
-        
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated':
+        await handleSubscriptionUpdated(event.data.object)
         break
-      }
-      
-      case 'customer.subscription.deleted': {
-        console.log('Processing customer.subscription.deleted event')
-        const subscription = event.data.object
-        const stripeSubId = subscription.id
-
-        // サブスクリプションのステータスを更新
-        console.log(`Marking subscription as canceled: ${stripeSubId}`)
-        const { error: updateError } = await supabase
-          .from('subscriptions')
-          .update({
-            status: 'canceled',
-            cancel_at_period_end: true,
-            updated_at: new Date().toISOString()
-          })
-          .eq('stripe_subscription_id', stripeSubId)
-        
-        if (updateError) {
-          console.error('Error marking subscription as canceled:', updateError)
-          return new Response(JSON.stringify({ error: updateError.message }), {
-            status: 500,
-            headers: corsHeaders
-          })
-        } else {
-          console.log('Subscription marked as canceled successfully')
-        }
-        
+      case 'customer.subscription.deleted':
+        await handleSubscriptionDeleted(event.data.object)
         break
-      }
+      case 'invoice.payment_succeeded':
+        // 定期支払いの成功処理
+        await handleInvoicePaymentSucceeded(event.data.object)
+        break
+      case 'invoice.payment_failed':
+        // 定期支払い失敗の処理
+        await handleInvoicePaymentFailed(event.data.object)
+        break
+      default:
+        console.log(`Unhandled event type: ${event.type}`)
     }
 
     return new Response(JSON.stringify({ received: true }), {
-      headers: corsHeaders
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
-    console.error('Webhook general error:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error(`Webhook error: ${error.message}`)
+    return new Response(JSON.stringify({ error: `Webhook error: ${error.message}` }), {
       status: 500,
-      headers: corsHeaders
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 })
+
+// チェックアウトセッション完了時の処理
+async function handleCheckoutSessionCompleted(session) {
+  console.log(`Processing checkout.session.completed for session ${session.id}`)
+  
+  try {
+    // セッションに関連するサブスクリプションを取得
+    if (session.subscription) {
+      const subscription = await stripe.subscriptions.retrieve(session.subscription)
+      console.log(`Retrieved subscription: ${subscription.id}`)
+      
+      // Supabaseにサブスクリプション情報を保存
+      await saveSubscriptionToDatabase(subscription, session.customer, session.metadata)
+    } else {
+      console.log('No subscription found in the checkout session')
+    }
+  } catch (error) {
+    console.error(`Error processing checkout session: ${error.message}`)
+    throw error
+  }
+}
+
+// サブスクリプションの更新処理
+async function handleSubscriptionUpdated(subscription) {
+  console.log(`Processing customer.subscription.updated for subscription ${subscription.id}`)
+  
+  try {
+    // メタデータを取得するために顧客情報も取得
+    const customer = await stripe.customers.retrieve(subscription.customer)
+    console.log(`Retrieved customer: ${customer.id}`)
+    
+    // メタデータをチェック（user_idがある場合）
+    const metadata = customer.metadata || {}
+    
+    // Supabaseにサブスクリプション情報を保存/更新
+    await saveSubscriptionToDatabase(subscription, subscription.customer, metadata)
+  } catch (error) {
+    console.error(`Error processing subscription update: ${error.message}`)
+    throw error
+  }
+}
+
+// サブスクリプションの削除処理
+async function handleSubscriptionDeleted(subscription) {
+  console.log(`Processing customer.subscription.deleted for subscription ${subscription.id}`)
+  
+  try {
+    // メタデータを取得するために顧客情報も取得
+    const customer = await stripe.customers.retrieve(subscription.customer)
+    console.log(`Retrieved customer: ${customer.id}`)
+    
+    // Supabaseでサブスクリプションのステータスを更新
+    const { data, error } = await supabaseAdmin
+      .from('subscriptions')
+      .update({
+        status: 'canceled',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('stripe_subscription_id', subscription.id)
+    
+    if (error) {
+      console.error(`Error updating subscription status: ${error.message}`)
+      throw error
+    }
+    
+    console.log(`Successfully updated subscription status for ${subscription.id}`)
+  } catch (error) {
+    console.error(`Error processing subscription deletion: ${error.message}`)
+    throw error
+  }
+}
+
+// 請求書支払い成功時の処理
+async function handleInvoicePaymentSucceeded(invoice) {
+  console.log(`Processing invoice.payment_succeeded for invoice ${invoice.id}`)
+  
+  try {
+    if (invoice.subscription) {
+      // 関連するサブスクリプションを取得
+      const subscription = await stripe.subscriptions.retrieve(invoice.subscription)
+      console.log(`Retrieved subscription: ${subscription.id}`)
+      
+      // メタデータを取得するために顧客情報も取得
+      const customer = await stripe.customers.retrieve(invoice.customer)
+      console.log(`Retrieved customer: ${customer.id}`)
+      
+      // Supabaseでサブスクリプション情報を更新
+      await saveSubscriptionToDatabase(subscription, invoice.customer, customer.metadata || {})
+    } else {
+      console.log('No subscription found in the invoice')
+    }
+  } catch (error) {
+    console.error(`Error processing invoice payment success: ${error.message}`)
+    throw error
+  }
+}
+
+// 請求書支払い失敗時の処理
+async function handleInvoicePaymentFailed(invoice) {
+  console.log(`Processing invoice.payment_failed for invoice ${invoice.id}`)
+  
+  // ここでは、通知や他のアクションを実装できます
+  try {
+    if (invoice.subscription) {
+      // サブスクリプションの状態を更新
+      const { data, error } = await supabaseAdmin
+        .from('subscriptions')
+        .update({
+          status: 'past_due',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('stripe_subscription_id', invoice.subscription)
+      
+      if (error) {
+        console.error(`Error updating subscription status: ${error.message}`)
+        throw error
+      }
+      
+      console.log(`Successfully updated subscription status for ${invoice.subscription}`)
+    }
+  } catch (error) {
+    console.error(`Error processing invoice payment failure: ${error.message}`)
+    throw error
+  }
+}
+
+// サブスクリプション情報をデータベースに保存
+async function saveSubscriptionToDatabase(subscription, customerId, metadata) {
+  console.log(`Saving subscription ${subscription.id} to database`)
+  
+  try {
+    // サブスクリプションの重要な情報を取得
+    const status = subscription.status
+    const planId = subscription.items.data[0].price.id
+    const currentPeriodStart = new Date(subscription.current_period_start * 1000).toISOString()
+    const currentPeriodEnd = new Date(subscription.current_period_end * 1000).toISOString()
+    const cancelAtPeriodEnd = subscription.cancel_at_period_end
+    
+    // プランタイプとビリングピリオドを価格IDから判断
+    let planType, billingPeriod
+    
+    // 価格IDに基づいて判断（Stripeダッシュボードの実際の価格IDに合わせる必要があります）
+    switch (planId) {
+      case 'price_1OIiOUKUVUnt8GtyOfXEoEvW':
+        planType = 'standard'
+        billingPeriod = 'monthly'
+        break
+      case 'price_1OIiPpKUVUnt8Gty0OH3Pyip':
+        planType = 'standard'
+        billingPeriod = 'quarterly'
+        break
+      case 'price_1OIiMRKUVUnt8GtyMGSJIH8H':
+        planType = 'feedback'
+        billingPeriod = 'monthly'
+        break
+      case 'price_1OIiMRKUVUnt8GtyttXJ71Hz':
+        planType = 'feedback'
+        billingPeriod = 'quarterly'
+        break
+      default:
+        planType = 'standard'
+        billingPeriod = 'monthly'
+    }
+    
+    // メタデータからユーザーIDを取得（または他のソースから）
+    const userId = metadata.user_id || null
+    
+    if (!userId) {
+      console.warn(`No userId found in metadata for subscription ${subscription.id}`)
+    } else {
+      console.log(`Found userId ${userId} in metadata`)
+    }
+    
+    // 既存のサブスクリプションを確認
+    console.log(`Checking for existing subscription with ID ${subscription.id}`)
+    const { data: existingSubscription, error: fetchError } = await supabaseAdmin
+      .from('subscriptions')
+      .select('*')
+      .eq('stripe_subscription_id', subscription.id)
+      .single()
+    
+    if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116はデータが見つからないエラー
+      console.error(`Error fetching existing subscription: ${fetchError.message}`)
+      throw fetchError
+    }
+    
+    if (existingSubscription) {
+      // 既存のサブスクリプションを更新
+      console.log(`Updating existing subscription ${subscription.id}`)
+      const { data, error } = await supabaseAdmin
+        .from('subscriptions')
+        .update({
+          status,
+          current_period_start: currentPeriodStart,
+          current_period_end: currentPeriodEnd,
+          cancel_at_period_end: cancelAtPeriodEnd,
+          plan_type: planType,
+          billing_period: billingPeriod,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('stripe_subscription_id', subscription.id)
+      
+      if (error) {
+        console.error(`Error updating subscription: ${error.message}`)
+        throw error
+      }
+      
+      console.log(`Successfully updated subscription ${subscription.id}`)
+    } else {
+      // 新しいサブスクリプションを作成
+      console.log(`Creating new subscription record for ${subscription.id}`)
+      const { data, error } = await supabaseAdmin
+        .from('subscriptions')
+        .insert({
+          user_id: userId,
+          stripe_subscription_id: subscription.id,
+          stripe_customer_id: customerId,
+          status,
+          current_period_start: currentPeriodStart,
+          current_period_end: currentPeriodEnd,
+          cancel_at_period_end: cancelAtPeriodEnd,
+          plan_type: planType,
+          billing_period: billingPeriod,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+      
+      if (error) {
+        console.error(`Error inserting subscription: ${error.message}`)
+        throw error
+      }
+      
+      console.log(`Successfully created subscription record for ${subscription.id}`)
+    }
+  } catch (error) {
+    console.error(`Error saving subscription to database: ${error.message}`)
+    throw error
+  }
+}

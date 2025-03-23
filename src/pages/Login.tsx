@@ -137,7 +137,12 @@ const Login = () => {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>パスワード</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>パスワード</FormLabel>
+                    <Link to="/reset-password" className="text-xs text-primary hover:underline">
+                      パスワードをお忘れですか？
+                    </Link>
+                  </div>
                   <FormControl>
                     <div className="relative">
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />

@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
@@ -13,6 +12,9 @@ interface AuthContextProps {
   signUp: (email: string, password: string, name: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  updatePassword: (password: string, accessToken?: string | null, refreshToken?: string | null) => Promise<void>;
+  updateEmail: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextProps>({
@@ -23,6 +25,9 @@ const AuthContext = createContext<AuthContextProps>({
   signUp: async () => {},
   signIn: async () => {},
   signOut: async () => {},
+  resetPassword: async () => {},
+  updatePassword: async () => {},
+  updateEmail: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -245,6 +250,147 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  // パスワードリセット
+  const resetPassword = async (email: string) => {
+    if (!isConfigured) {
+      console.warn("Supabase configuration missing - Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables.");
+      toast.error("Supabase configuration missing");
+      return;
+    }
+    
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/update-password`,
+      });
+      
+      if (error) {
+        throw error;
+      }
+
+      return;
+    } catch (error: any) {
+      console.error('Error during password reset:', error);
+      
+      let errorMessage = "パスワードリセットに失敗しました。";
+      if (error.message) {
+        if (error.message.includes("User not found")) {
+          errorMessage = "このメールアドレスは登録されていません。";
+        } else if (error.code === "over_email_send_rate_limit") {
+          errorMessage = "セキュリティのため短時間での複数回のリクエストはできません。しばらくしてからお試しください。";
+        }
+      }
+      
+      uiToast({
+        variant: "destructive",
+        title: "エラーが発生しました",
+        description: errorMessage,
+      });
+      
+      throw error;
+    }
+  };
+
+  // パスワード更新
+  const updatePassword = async (password: string, accessToken?: string | null, refreshToken?: string | null) => {
+    if (!isConfigured) {
+      console.warn("Supabase configuration missing - Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables.");
+      toast.error("Supabase configuration missing");
+      return;
+    }
+    
+    try {
+      let error;
+      
+      // アクセストークンがある場合（パスワードリセット時）
+      if (accessToken) {
+        // セッションを更新
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken || '',
+        });
+        
+        if (sessionError) throw sessionError;
+        
+        // パスワード更新
+        const { error: updateError } = await supabase.auth.updateUser({
+          password: password,
+        });
+        
+        error = updateError;
+      } else {
+        // 通常のパスワード更新（ログイン中）
+        const { error: updateError } = await supabase.auth.updateUser({
+          password: password,
+        });
+        
+        error = updateError;
+      }
+      
+      if (error) {
+        throw error;
+      }
+
+      return;
+    } catch (error: any) {
+      console.error('Error during password update:', error);
+      
+      let errorMessage = "パスワードの更新に失敗しました。";
+      if (error.message) {
+        if (error.message.includes("Token expired")) {
+          errorMessage = "リンクの有効期限が切れています。もう一度パスワードリセットを行ってください。";
+        } else if (error.message.includes("Invalid JWT")) {
+          errorMessage = "無効なトークンです。もう一度パスワードリセットを行ってください。";
+        }
+      }
+      
+      uiToast({
+        variant: "destructive",
+        title: "エラーが発生しました",
+        description: errorMessage,
+      });
+      
+      throw error;
+    }
+  };
+
+  // メールアドレス更新
+  const updateEmail = async (email: string) => {
+    if (!isConfigured) {
+      console.warn("Supabase configuration missing - Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables.");
+      toast.error("Supabase configuration missing");
+      return;
+    }
+    
+    try {
+      const { error } = await supabase.auth.updateUser({
+        email: email,
+      });
+      
+      if (error) {
+        throw error;
+      }
+
+      return;
+    } catch (error: any) {
+      console.error('Error during email update:', error);
+      
+      let errorMessage = "メールアドレスの更新に失敗しました。";
+      if (error.message) {
+        if (error.message.includes("already in use")) {
+          errorMessage = "このメールアドレスは既に使用されています。";
+        }
+      }
+      
+      uiToast({
+        variant: "destructive",
+        title: "エラーが発生しました",
+        description: errorMessage,
+      });
+      
+      throw error;
+    }
+  };
+
   const value = {
     user,
     session,
@@ -253,6 +399,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     signUp,
     signIn,
     signOut,
+    resetPassword,
+    updatePassword,
+    updateEmail,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

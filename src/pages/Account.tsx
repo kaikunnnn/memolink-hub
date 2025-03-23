@@ -16,7 +16,7 @@ import {
   statusDisplayInfo 
 } from '@/utils/subscription';
 import { ExtendedBadgeVariant } from '@/types/subscription';
-import { CreditCard } from 'lucide-react';
+import { CreditCard, User, Settings } from 'lucide-react';
 
 const Account = () => {
   const { user, isConfigured } = useAuth();
@@ -52,6 +52,11 @@ const Account = () => {
   // プラン変更ページへの遷移
   const handleChangePlan = () => {
     navigate('/pricing');
+  };
+
+  // プロフィール編集ページへの遷移
+  const handleEditProfile = () => {
+    navigate('/edit-profile');
   };
   
   // Supabaseが設定されていない場合
@@ -91,6 +96,13 @@ const Account = () => {
                   <div className="space-y-1">
                     <p className="text-sm font-medium">ユーザーID</p>
                     <p className="text-sm text-muted-foreground">{user.id}</p>
+                  </div>
+
+                  <div className="pt-4">
+                    <Button onClick={handleEditProfile} className="flex items-center">
+                      <User className="mr-2 h-4 w-4" />
+                      プロフィール編集
+                    </Button>
                   </div>
                 </div>
               </CardContent>

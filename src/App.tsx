@@ -17,6 +17,9 @@ import Account from '@/pages/Account';
 import PremiumContent from '@/pages/PremiumContent';
 import Pricing from '@/pages/Pricing';
 import PlanProtectedRoute from '@/components/PlanProtectedRoute';
+import ResetPassword from '@/pages/ResetPassword';
+import UpdatePassword from '@/pages/UpdatePassword';
+import EditProfile from '@/pages/EditProfile';
 
 const App = () => {
   return (
@@ -33,6 +36,8 @@ const App = () => {
                 <Route path="/login" element={<Login />} />
                 <Route path="/signin" element={<SignIn />} />
                 <Route path="/signup" element={<SignUp />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/update-password" element={<UpdatePassword />} />
                 <Route path="/premium" element={<PremiumContent />} />
                 <Route path="/pricing" element={<Pricing />} />
                 <Route 
@@ -40,6 +45,14 @@ const App = () => {
                   element={
                     <ProtectedRoute>
                       <Account />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/edit-profile" 
+                  element={
+                    <ProtectedRoute>
+                      <EditProfile />
                     </ProtectedRoute>
                   } 
                 />

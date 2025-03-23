@@ -1,141 +1,86 @@
 
-import { PlanType, BillingPeriod, PlanInfo } from '@/types/subscription';
+import { BillingPeriod, ExtendedBadgeVariant, PlanType, SubscriptionStatus } from '@/types/subscription';
 
-// プラン情報のデータ
-const PLAN_DATA: Record<PlanType, PlanInfo> = {
-  free: {
-    id: 'free',
-    name: '無料プラン',
-    description: '基本的な機能を無料で利用できます',
-    features: [
-      '基本的なコンテンツの閲覧',
-      '限定コミュニティへのアクセス',
-      'ブログ記事の閲覧'
-    ],
-    prices: {
-      monthly: 0,
-      quarterly: 0
-    },
-    stripeIds: {
-      monthly: '',
-      quarterly: ''
-    }
-  },
-  standard: {
-    id: 'standard',
-    name: 'スタンダードプラン',
-    description: '基本的な学習コンテンツにアクセスできます',
-    features: [
-      '全ての学習コンテンツへのアクセス',
-      'オンデマンド動画レッスン',
-      'プログレストラッキング',
-      '練習問題と小テスト',
-      'コミュニティフォーラムへのアクセス'
-    ],
-    prices: {
-      monthly: 2980,
-      quarterly: Math.round(2980 * 3 * 0.85) // 15%割引
-    },
-    stripeIds: {
-      // ここにStripeの実際の価格IDを設定してください
-      monthly: 'price_1OIiOUKUVUnt8GtyOfXEoEvW', // 実際のデモIDに変更
-      quarterly: 'price_1OIiPpKUVUnt8Gty0OH3Pyip' // 実際のデモIDに変更
-    }
-  },
-  feedback: {
-    id: 'feedback',
-    name: 'フィードバックプラン',
-    description: '個別フィードバックとレビューが受けられます',
-    features: [
-      '全ての学習コンテンツへのアクセス',
-      'オンデマンド動画レッスン',
-      'プログレストラッキング',
-      '練習問題と小テスト',
-      'コミュニティフォーラムへのアクセス',
-      '個別フィードバック（月3回まで）',
-      '課題の添削',
-      '質問への優先回答',
-      '月1回のグループQ&Aセッション'
-    ],
-    prices: {
-      monthly: 4980,
-      quarterly: Math.round(4980 * 3 * 0.85) // 15%割引
-    },
-    stripeIds: {
-      // ここにStripeの実際の価格IDを設定してください
-      monthly: 'price_1OIiMRKUVUnt8GtyMGSJIH8H', // 実際のデモIDに変更
-      quarterly: 'price_1OIiMRKUVUnt8GtyttXJ71Hz' // 実際のデモIDに変更
-    }
-  }
-};
-
-// プラン情報を取得する関数
-export function getPlanInfo(planType: PlanType): PlanInfo {
-  return PLAN_DATA[planType];
-}
-
-// すべてのプラン情報を取得する関数
-export function getAllPlans(): PlanInfo[] {
-  return Object.values(PLAN_DATA);
-}
-
-// 価格を日本円形式でフォーマットする関数
-export function formatPrice(price: number): string {
-  return `¥${price.toLocaleString()}`;
-}
-
-// 月額表示価格を計算（3ヶ月の場合は月あたりの金額）
-export function getMonthlyDisplayPrice(planType: PlanType, billingPeriod: BillingPeriod): string {
-  const planInfo = getPlanInfo(planType);
-  if (billingPeriod === 'monthly') {
-    return formatPrice(planInfo.prices.monthly);
-  } else {
-    // 3ヶ月分の総額を3で割って月額相当を計算
-    const monthlyEquivalent = Math.round(planInfo.prices.quarterly / 3);
-    return formatPrice(monthlyEquivalent);
-  }
-}
-
-// 期間表示名を取得
-export function getPeriodDisplayName(billingPeriod: BillingPeriod): string {
-  return billingPeriod === 'monthly' ? '月額' : '3ヶ月';
-}
-
-// サブスクリプションの日付をフォーマット
-export function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  return new Intl.DateTimeFormat('ja-JP', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  }).format(date);
-}
-
-// Stripeの価格IDを取得
-export function getStripePriceId(planType: PlanType, billingPeriod: BillingPeriod): string {
-  if (planType === 'free') return '';
-  return PLAN_DATA[planType].stripeIds[billingPeriod];
-}
-
-// プラン名表示用のマッピング
+/**
+ * プラン表示名のマッピング
+ */
 export const planDisplayNames: Record<PlanType, string> = {
   free: '無料プラン',
   standard: 'スタンダードプラン',
   feedback: 'フィードバックプラン'
 };
 
-// 期間表示用のマッピング
-export const periodDisplayNames: Record<BillingPeriod | 'null', string> = {
+/**
+ * 課金期間表示名のマッピング
+ */
+export const periodDisplayNames: Record<BillingPeriod, string> = {
   monthly: '月額',
-  quarterly: '3ヶ月',
-  'null': ''
+  quarterly: '3ヶ月'
 };
 
-// ステータス表示用のマッピング
-export const statusDisplayInfo: Record<string, { label: string, color: string }> = {
+/**
+ * サブスクリプションステータスの表示情報
+ */
+export const statusDisplayInfo: Record<SubscriptionStatus, { 
+  label: string; 
+  color: ExtendedBadgeVariant 
+}> = {
   active: { label: '有効', color: 'success' },
-  canceled: { label: 'キャンセル済み（期間終了まで有効）', color: 'warning' },
-  past_due: { label: '支払い期限超過', color: 'destructive' },
-  incomplete: { label: '処理中', color: 'secondary' },
-  trialing: { label: 'トライアル中', color: 'secondary' }
+  trialing: { label: '試用期間中', color: 'success' },
+  canceled: { label: 'キャンセル済み', color: 'warning' },
+  incomplete: { label: '未完了', color: 'warning' },
+  past_due: { label: '支払い遅延', color: 'destructive' }
+};
+
+/**
+ * 日付をフォーマットする関数
+ */
+export const formatDate = (dateString: string): string => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('ja-JP', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+};
+
+/**
+ * Stripe価格IDを取得する関数
+ * 
+ * @param planType プランタイプ（'standard' or 'feedback'）
+ * @param billingPeriod 課金期間（'monthly' or 'quarterly'）
+ * @returns Stripe価格ID
+ */
+export const getStripePriceId = (planType: PlanType, billingPeriod: BillingPeriod): string => {
+  // プランと課金期間に基づいて価格IDを返す
+  if (planType === 'standard') {
+    return billingPeriod === 'monthly' 
+      ? 'price_1OIiOUKUVUnt8GtyOfXEoEvW' // スタンダード月額
+      : 'price_1OIiPpKUVUnt8Gty0OH3Pyip' // スタンダード3ヶ月
+  } else if (planType === 'feedback') {
+    return billingPeriod === 'monthly' 
+      ? 'price_1OIiMRKUVUnt8GtyMGSJIH8H' // フィードバック月額
+      : 'price_1OIiMRKUVUnt8GtyttXJ71Hz' // フィードバック3ヶ月
+  }
+  
+  // デフォルトとしてスタンダード月額を返す
+  return 'price_1OIiOUKUVUnt8GtyOfXEoEvW'; 
+};
+
+/**
+ * プランの価格を取得する
+ */
+export const getPlanPrices = (): Record<PlanType, { monthly: number; quarterly: number }> => {
+  return {
+    free: { monthly: 0, quarterly: 0 },
+    standard: { monthly: 2980, quarterly: 7590 }, // 3ヶ月は15%オフ（2980 * 3 * 0.85 = 7590）
+    feedback: { monthly: 4980, quarterly: 12699 } // 3ヶ月は15%オフ（4980 * 3 * 0.85 = 12699）
+  };
+};
+
+/**
+ * 割引率を計算する（3ヶ月プランの場合）
+ */
+export const getQuarterlyDiscount = (): number => {
+  return 15; // 15%割引
 };

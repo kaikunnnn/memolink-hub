@@ -1,6 +1,6 @@
 
-import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -21,20 +21,22 @@ import { toast } from "sonner";
 import SupabaseConfigGuide from '@/components/SupabaseConfigGuide';
 
 const formSchema = z.object({
-  password: z.string().min(8, {
-    message: "パスワードは8文字以上である必要があります。",
+  currentPassword: z.string().min(6, {
+    message: "パスワードは最低6文字以上必要です。",
   }),
-  confirmPassword: z.string().min(8, {
-    message: "パスワードは8文字以上である必要があります。",
+  newPassword: z.string().min(6, {
+    message: "新しいパスワードは最低6文字以上必要です。",
   }),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "パスワードが一致しません。",
+  confirmPassword: z.string().min(6, {
+    message: "新しいパスワードの確認は最低6文字以上必要です。",
+  }),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "新しいパスワードと確認用パスワードが一致しません。",
   path: ["confirmPassword"],
 });
 
 const UpdatePassword = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { updatePassword, isConfigured } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generalError, setGeneralError] = useState<string | null>(null);
@@ -43,40 +45,31 @@ const UpdatePassword = () => {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      password: "",
+      currentPassword: "",
+      newPassword: "",
       confirmPassword: "",
     },
   });
 
-  // URLからトークンを取得
-  const accessToken = searchParams.get('access_token');
-  const refreshToken = searchParams.get('refresh_token');
-  
-  // トークンが存在するか確認
-  useEffect(() => {
-    if (!accessToken) {
-      setGeneralError("有効なトークンがありません。パスワードリセットのメールから再度アクセスしてください。");
-    }
-  }, [accessToken]);
-
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    if (!accessToken) {
-      setGeneralError("有効なトークンがありません。パスワードリセットのメールから再度アクセスしてください。");
-      return;
-    }
-
     setGeneralError(null);
     setIsSubmitting(true);
     
     try {
-      await updatePassword(values.password, accessToken, refreshToken);
+      await updatePassword(values.currentPassword, values.newPassword);
       setSuccess(true);
-      toast.success("パスワードが正常に更新されました", {
-        description: "新しいパスワードでログインできます"
+      toast.success("パスワードが更新されました", {
+        description: "新しいパスワードが正常に設定されました"
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Password update error:', error);
-      setGeneralError("パスワードの更新に失敗しました。もう一度お試しください。");
+      
+      if (error.message.includes("Invalid login credentials")) {
+        setGeneralError("現在のパスワードが正しくありません。");
+      } else {
+        setGeneralError("パスワードの更新に失敗しました。もう一度お試しください。");
+      }
+      
       toast.error("エラーが発生しました", {
         description: "パスワードの更新に失敗しました"
       });
@@ -118,9 +111,9 @@ const UpdatePassword = () => {
         </Button>
         
         <div className="space-y-2 text-center mb-8">
-          <h1 className="text-2xl font-bold tracking-tight">新しいパスワードを設定</h1>
+          <h1 className="text-2xl font-bold tracking-tight">パスワードを変更</h1>
           <p className="text-muted-foreground">
-            安全な新しいパスワードを入力してください
+            新しいパスワードを設定してください
           </p>
         </div>
 
@@ -135,11 +128,11 @@ const UpdatePassword = () => {
           <div className="text-center space-y-4">
             <Alert className="mb-6">
               <AlertDescription>
-                パスワードが正常に更新されました。新しいパスワードでログインできます。
+                パスワードが正常に更新されました。
               </AlertDescription>
             </Alert>
             <Button asChild className="mt-4">
-              <Link to="/signin">ログインページへ</Link>
+              <Link to="/account">アカウントページへ戻る</Link>
             </Button>
           </div>
         ) : (
@@ -147,14 +140,31 @@ const UpdatePassword = () => {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
-                name="password"
+                name="currentPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>現在のパスワード</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input type="password" className="pl-10" {...field} />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="newPassword"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>新しいパスワード</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input type="password" placeholder="••••••••" className="pl-10" {...field} />
+                        <Input type="password" className="pl-10" {...field} />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -167,11 +177,11 @@ const UpdatePassword = () => {
                 name="confirmPassword"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>パスワード（確認）</FormLabel>
+                    <FormLabel>新しいパスワード（確認）</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input type="password" placeholder="••••••••" className="pl-10" {...field} />
+                        <Input type="password" className="pl-10" {...field} />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -179,7 +189,7 @@ const UpdatePassword = () => {
                 )}
               />
 
-              <Button type="submit" className="w-full" disabled={isSubmitting || !accessToken}>
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <span className="flex items-center">
                     <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent"></span>

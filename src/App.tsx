@@ -20,6 +20,7 @@ import PlanProtectedRoute from '@/components/PlanProtectedRoute';
 import ResetPassword from '@/pages/ResetPassword';
 import UpdatePassword from '@/pages/UpdatePassword';
 import EditProfile from '@/pages/EditProfile';
+import PlanDetails from '@/pages/PlanDetails';
 
 const App = () => {
   return (
@@ -53,6 +54,14 @@ const App = () => {
                   element={
                     <ProtectedRoute>
                       <EditProfile />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/plan-details" 
+                  element={
+                    <ProtectedRoute>
+                      <PlanDetails />
                     </ProtectedRoute>
                   } 
                 />

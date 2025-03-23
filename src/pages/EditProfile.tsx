@@ -19,22 +19,21 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ArrowLeft, Mail, User, AlertCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 const formSchema = z.object({
   email: z.string().email({
     message: "有効なメールアドレスを入力してください。",
   }),
-  name: z.string().min(1, {
-    message: "名前を入力してください。",
-  }).optional(),
+  name: z.string().optional(), // 名前を任意項目に変更
 });
 
 const EditProfile = () => {
   const navigate = useNavigate();
-  const { user, isPending, isConfigured, updateEmail } = useAuth(); // isLoadingをisPendingに変更
+  const { user, isPending, isConfigured, updateEmail } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generalError, setGeneralError] = useState<string | null>(null);
+  const [currentPassword, setCurrentPassword] = useState("");
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -55,7 +54,7 @@ const EditProfile = () => {
             .from('profiles')
             .select('name')
             .eq('id', user.id)
-            .single();
+            .maybeSingle(); // single()ではなくmaybeSingle()を使用
             
           if (data && data.name) {
             form.setValue('name', data.name);
@@ -77,27 +76,32 @@ const EditProfile = () => {
     
     try {
       // メールアドレスの更新が必要かチェック
-      if (values.email !== user.email) {
-        await updateEmail(values.email, "password"); // パスワード引数を追加（実際は別のパスワード入力フィールドから取得する必要あり）
-        toast.success("メールアドレス更新の確認メールを送信しました", {
-          description: "メール内のリンクをクリックして更新を完了してください"
-        });
+      if (values.email !== user.email && currentPassword) {
+        try {
+          await updateEmail(values.email, currentPassword);
+          toast.success("メールアドレス更新の確認メールを送信しました", {
+            description: "メール内のリンクをクリックして更新を完了してください"
+          });
+        } catch (error: any) {
+          console.error('Email update error:', error);
+          toast.error("メールアドレスの更新に失敗しました", {
+            description: error.message || "パスワードが正しいか確認してください"
+          });
+          // メール更新失敗でもプロフィール更新は続ける
+        }
       }
       
       // プロフィール情報の更新
-      if (values.name) {
-        const { error } = await supabase
-          .from('profiles')
-          .upsert({ 
-            id: user.id, 
-            name: values.name 
-          });
-          
-        if (error) throw error;
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({ 
+          id: user.id, 
+          name: values.name 
+        });
         
-        toast.success("プロフィール情報を更新しました");
-      }
+      if (error) throw error;
       
+      toast.success("プロフィール情報を更新しました");
       navigate('/account');
     } catch (error: any) {
       console.error('Profile update error:', error);
@@ -110,7 +114,7 @@ const EditProfile = () => {
     }
   };
 
-  if (isPending) { // isLoadingをisPendingに変更
+  if (isPending) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
@@ -170,12 +174,32 @@ const EditProfile = () => {
                 )}
               />
               
+              {user.email !== form.watch('email') && (
+                <FormItem>
+                  <FormLabel>現在のパスワード</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Input 
+                        type="password" 
+                        placeholder="現在のパスワード" 
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        className="pl-3" 
+                      />
+                    </div>
+                  </FormControl>
+                  <p className="text-sm text-muted-foreground">
+                    メールアドレスを変更する場合は、現在のパスワードが必要です
+                  </p>
+                </FormItem>
+              )}
+              
               <FormField
                 control={form.control}
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>名前</FormLabel>
+                    <FormLabel>名前 (任意)</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />

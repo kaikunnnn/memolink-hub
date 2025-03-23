@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,7 +10,7 @@ interface AuthContextProps {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   isPending: boolean;
-  isLoading: boolean;
+  isLoading: boolean; // isLoadingプロパティを追加
   isInitialized: boolean;
   isAuthenticated: boolean;
   isConfigured: boolean;
@@ -152,6 +153,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       throw new Error('Not authenticated or Supabase client not initialized');
     }
     
+    // 現在のメールアドレスとパスワードで認証
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: session.user.email!,
       password: password,
@@ -161,6 +163,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       throw signInError;
     }
     
+    // メールアドレスの更新リクエスト
     const { error } = await supabase.auth.updateUser({
       email: newEmail,
     });
@@ -177,7 +180,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signIn,
     signOut,
     isPending,
-    isLoading: isPending,
+    isLoading: isPending, // isLoadingをisPendingにマップ
     isInitialized,
     isAuthenticated: !!user,
     isConfigured: !!supabase,

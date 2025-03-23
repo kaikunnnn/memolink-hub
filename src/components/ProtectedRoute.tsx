@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { user, isPending, isConfigured } = useAuth(); // isLoadingをisPendingに変更
+  const { user, isPending, isConfigured } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {

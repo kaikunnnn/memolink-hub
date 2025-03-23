@@ -30,7 +30,7 @@ const formSchema = z.object({
 
 const EditProfile = () => {
   const navigate = useNavigate();
-  const { user, isPending, isConfigured, updateEmail } = useAuth();
+  const { user, isLoading, isConfigured, updateEmail } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -50,7 +50,7 @@ const EditProfile = () => {
       // プロフィール情報をSupabaseから取得
       const fetchProfile = async () => {
         try {
-          // profilesテーブルからデータを取得
+          // カスタムクエリを使用して、型エラーを回避
           const { data, error } = await supabase
             .from('profiles')
             .select('name')
@@ -92,7 +92,7 @@ const EditProfile = () => {
         }
       }
       
-      // プロフィール情報の更新
+      // プロフィール情報の更新（型エラーを回避するために直接クエリを書く）
       const { error } = await supabase
         .from('profiles')
         .upsert({ 
@@ -115,7 +115,7 @@ const EditProfile = () => {
     }
   };
 
-  if (isPending) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>

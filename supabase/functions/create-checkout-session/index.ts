@@ -57,12 +57,12 @@ serve(async (req) => {
     let priceId
     if (planType === 'standard') {
       priceId = billingPeriod === 'monthly' 
-        ? 'price_1234567890_standard_monthly' // 実際のIDに変更
-        : 'price_1234567890_standard_quarterly' // 実際のIDに変更
+        ? 'price_1OIiOUKUVUnt8GtyOfXEoEvW' // スタンダード1ヶ月月額
+        : 'price_1OIiPpKUVUnt8Gty0OH3Pyip' // スタンダード3ヶ月
     } else if (planType === 'feedback') {
       priceId = billingPeriod === 'monthly' 
-        ? 'price_1234567890_feedback_monthly' // 実際のIDに変更
-        : 'price_1234567890_feedback_quarterly' // 実際のIDに変更
+        ? 'price_1OIiMRKUVUnt8GtyMGSJIH8H' // フィードバック月額
+        : 'price_1OIiMRKUVUnt8GtyttXJ71Hz' // フィードバック3ヶ月
     } else {
       return new Response(
         JSON.stringify({ error: 'Invalid plan type' }),

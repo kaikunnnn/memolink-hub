@@ -36,7 +36,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
           
           <p className="subheading max-w-2xl mx-auto mb-8 animate-fade-up" style={{
           animationDelay: '0.4s'
-        }}>トップクリエイターやプロフェッショナルが教える高品質な動画コースで、 あなたのスキルを次のレベルへ。いつでもどこでも、自分のペースで学べます！</p>
+        }}>トップクリエイターやプロフェッショナルが教える高品質な動画コースで、 あなたのスキルを次のレベルへ。いつでもどこでも、自分のペースで学べます。</p>
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-up" style={{
           animationDelay: '0.5s'

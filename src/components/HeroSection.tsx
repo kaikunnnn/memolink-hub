@@ -44,7 +44,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ className }) => {
             style={{ animationDelay: '0.4s' }}
           >
             トップクリエイターやプロフェッショナルが教える高品質な動画コースで、
-            あなたのスキルを次のレベルへ。いつでもどこでも、自分のペースで学べます。
+            あなたのスキルを次のレベルへ。あなた自身のペースで学習できます。
           </p>
           
           <div 
